@@ -3,10 +3,10 @@ apiVersion: v2
 name: hashrouter
 type: application
 description: >-
-  A Helm chart for hashrouter, a daemon for Kubernetes to kill 
-  target resources under user-defined templated conditions
-version: 0.2.0 # chart version
-appVersion: "0.2.0" # application version
+  A Helm chart for hashrouter, a A zero-dependencies HTTP proxy 
+  that truly routes requests hash-consistently
+version: 0.1.0 # chart version
+appVersion: "0.1.0" # application version
 kubeVersion: ">=1.22.0-0" # kubernetes version
 home: https://github.com/achetronic/hashrouter
 sources:

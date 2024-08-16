@@ -6,28 +6,24 @@
 ![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UCeSb3yfsPNNVr13YsYNvCAw?label=achetronic&link=http%3A%2F%2Fyoutube.com%2Fachetronic)
 ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/achetronic?style=flat&logo=twitter&link=https%3A%2F%2Ftwitter.com%2Fachetronic)
 
-A daemon for Kubernetes to kill target resources under user-defined templated conditions
+A zero-dependencies HTTP proxy that truly routes requests hash-consistently
 
 ## Motivation
 
-In today's fast-paced environments, Kubernetes clusters often manage systems that dynamically create and destroy resources automatically. Examples of these are pipelines and cronjobs. 
+This project was created to address a common issue with older proxies that use consistent hashing for request routing. These proxies often fail to maintain real consistency, which can lead to unexpected changes in the backend and increased costs, especially in storage-intensive systems like Varnish.
 
-However, these automated processes can sometimes get stuck, causing disruptions that affect the smooth operation of the entire system. Often, simply terminating some of these objects can restore normalcy. 
-
-There is a need for a solution that empowers Kubernetes administrators to automate this cleanup process efficiently. 
-This project exists to provide a robust agent for automating the deletion of potential stuck resources, 
-ensuring your Kubernetes clusters run smoothly and reliably.
+Additionally, implementing this solution as a plugin for Nginx or Envoy is challenging because their APIs do not allow flexible changes in routing. Therefore, we developed an independent proxy that uses a consistent hash which only updates when backends actually change, ensuring a more stable request distribution and reducing costs.
 
 ## Flags
 
 As every configuration parameter can be defined in the config file, there are only few flags that can be defined.
 They are described in the following table:
 
-| Name              | Description                    |    Default    | Example                  |
-|:------------------|:-------------------------------|:-------------:|:-------------------------|
+| Name              | Description                    |      Default      | Example                      |
+|:------------------|:-------------------------------|:-----------------:|:-----------------------------|
 | `--config`        | Path to the YAML config file   | `hashrouter.yaml` | `--config ./hashrouter.yaml` |
-| `--log-level`     | Verbosity level for logs       |    `info`     | `--log-level info`       |
-| `--disable-trace` | Disable showing traces in logs |   `false`     | `--disable-trace`        |
+| `--log-level`     | Verbosity level for logs       |      `info`       | `--log-level info`           |
+| `--disable-trace` | Disable showing traces in logs |      `false`      | `--disable-trace`            |
 
 > Output is thrown always in JSON as it is more suitable for automations
 
@@ -44,49 +40,59 @@ Here you have a complete example. More up-to-date one will always be maintained 
 
 
 ```yaml
-version: v1alpha1
-kind: hashrouter
-metadata:
-  name: killing-sample
-spec:
-  synchronization:
-    time: 1m
+logs:
+  show_access_logs: true
+  access_logs_fields:
+  - ${REQUEST:method}
+  - ${REQUEST:host}
+  - ${REQUEST:path}
+  - ${REQUEST:proto}
+  - ${REQUEST:referer}
 
-  resources:
+  - ${REQUEST_HEADER:user-agent}
+  - ${REQUEST_HEADER:x-forwarded-for}
+  - ${REQUEST_HEADER:x-real-ip}
 
-    - target:
-        group: ""
-        version: v1
-        resource: pods
+  - ${RESPONSE_HEADER:content-length}
+  - ${RESPONSE_HEADER:content-type}
+  
 
-        # Select the resources by their name
-        # Choose one of the following options
-        name:
-          matchRegex: ^(coredns-)
-          #matchExact: "coredns-xxxxxxxxxx-yyyyy"
-        
-        # Select the namespace where the resources are located
-        # Choose one of the following options
-        namespace: 
-          matchRegex: ^(kube-system)
-          #matchExact: kube-system
-        
-      conditions:
+proxies:
+  - name: varnish
 
-      # Delete the resources when they are older than 10 minutes
-      - key: |-
-          {{/* Define some variables */}}
-          {{- $maxAgeMinutes := 10 -}}
+    listener:
+      port: 8080
+      address: 0.0.0.0
 
-          {{- $nowTimestamp := (now | unixEpoch) -}}
-          {{- $podStartTime := (toDate "2006-01-02T15:04:05Z07:00" .object.status.startTime) | unixEpoch -}}
-          
-          {{/* Calculate the age of the resource in minutes */}}
-          {{- $minutedFromNow := int (round (div (sub $nowTimestamp $podStartTime) 60) 0) -}}
-            
-          {{/* Print true ONLY if the resource is older than 5 minutes */}}
-          {{- printf "%v" (ge $minutedFromNow $maxAgeMinutes) -}}
-        value: true
+    backends:
+      # static:
+      #   - name: varnish-01
+      #     host: 127.0.0.1:8081
+
+      #   - name: varnish-02
+      #     host: 127.0.0.1:8082
+
+      #   - name: varnish-03
+      #     host: 127.0.0.1:8083
+
+      dns:
+        name: varnish-service
+        domain: example.com
+        port: 80
+        synchronization: 10s
+
+    hash_key:
+
+      # Key to generate a hash from the request. It can be composed using any of the following:
+      # ${REQUEST:scheme}, ${REQUEST:host}, ${REQUEST:port}, ${REQUEST:path}, ${REQUEST:query}
+      # ${REQUEST:method}, ${REQUEST:proto}
+      pattern: "${REQUEST:path}"
+
+    # Aditional options such as hashing mode or TTL
+    options:
+      protocol: http # http or http2
+      # certificate: /etc/ssl/certs/achetronic.pem
+      # key: /etc/ssl/private/achetronic.key
 
 ```
 
