@@ -24,21 +24,21 @@ proxies:
       address: 0.0.0.0
 
     backends:
-      # static:
-      #   - name: varnish-01
-      #     host: 127.0.0.1:8081
+      static:
+        - name: varnish-01
+          host: 127.0.0.1:8081
 
-      #   - name: varnish-02
-      #     host: 127.0.0.1:8082
+        - name: varnish-02
+          host: 127.0.0.1:8082
 
-      #   - name: varnish-03
-      #     host: 127.0.0.1:8083
+        - name: varnish-03
+          host: 127.0.0.1:8083
 
-      dns:
-        name: varnish-service
-        domain: example.com
-        port: 80
-        synchronization: 10s
+      # dns:
+      #   name: varnish-service
+      #   domain: example.com
+      #   port: 80
+      #   synchronization: 10s
 
     hash_key:
 
@@ -49,6 +49,12 @@ proxies:
 
     # Aditional options such as hashing mode or TTL
     options:
-      protocol: http # http or http2
+      protocol: http
+
+      # protocol: http2
       # certificate: /etc/ssl/certs/achetronic.pem
       # key: /etc/ssl/private/achetronic.key
+
+      # (optional) The maximum size y bytes of headers in a request
+      # By default, the value is 4KB
+      http_request_max_headers_size_bytes: 65536 # 64KB

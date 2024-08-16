@@ -45,8 +45,10 @@ type HashKeyT struct {
 // OptionsT defines TODO
 type OptionsT struct {
 	Protocol       string `yaml:"protocol"`
-	TlsCertificate string `yaml:"tls_certificate"`
-	TlsKey         string `yaml:"tls_key"`
+	TlsCertificate string `yaml:"tls_certificate,omitempty"`
+	TlsKey         string `yaml:"tls_key,omitempty"`
+
+	HttpRequestMaxHeadersSizeBytes int `yaml:"http_request_max_headers_size_bytes,omitempty"`
 }
 
 // LogsT TODO
