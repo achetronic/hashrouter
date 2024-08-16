@@ -27,8 +27,10 @@ type BackendsStaticT struct {
 }
 
 type BackendsDnsT struct {
-	Name   string `yaml:"name"`
-	Domain string `yaml:"domain"`
+	Name            string `yaml:"name"`
+	Domain          string `yaml:"domain"`
+	Port            int    `yaml:"port"`
+	Synchronization string `yaml:"synchronization"`
 }
 
 type BackendsT struct {

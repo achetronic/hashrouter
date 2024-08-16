@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"hashrouter/internal/globals"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -105,4 +106,10 @@ func ReplaceHeaderTagsString(req *http.Request, res *http.Response, textToProces
 	})
 
 	return result
+}
+
+// IsIPv6 TODO
+func IsIPv6(ip string) bool {
+	parsedIP := net.ParseIP(ip)
+	return parsedIP != nil && parsedIP.To16() != nil && parsedIP.To4() == nil
 }

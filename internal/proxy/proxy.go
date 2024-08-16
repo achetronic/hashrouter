@@ -6,6 +6,8 @@ import (
 	"hashrouter/internal/hashring"
 	"net"
 	"reflect"
+	"slices"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -52,16 +54,53 @@ func (p *Proxy) Run(waitGroup *sync.WaitGroup) {
 		}
 
 		if !reflect.ValueOf(p.Config.Backends.Dns).IsZero() {
-			ips, err := net.LookupIP(p.Config.Backends.Dns.Domain)
+			// Arrancar una goroutine que sincronice el hashring de cuando en cuando
+			go func() {
 
-			if err != nil {
-				globals.Application.Logger.Errorf("error looking up %s: %s", p.Config.Backends.Dns.Domain, err.Error())
-				goto waitNextLoop
-			}
+				syncDuration, err := time.ParseDuration(p.Config.Backends.Dns.Synchronization)
+				if err != nil {
+					globals.Application.Logger.Fatalf("error parsing synchronization duration: %s", err.Error())
+				}
 
-			for _, ip := range ips {
-				p.Hashring.AddServer(ip.String())
-			}
+				serverPool := []string{}
+				for {
+
+					globals.Application.Logger.Infof("syncing hashring with DNS")
+
+					discoveredIps, err := net.LookupIP(p.Config.Backends.Dns.Domain)
+					if err != nil {
+						globals.Application.Logger.Errorf("error looking up %s: %s", p.Config.Backends.Dns.Domain, err.Error())
+					}
+
+					// Add recently discovered servers to the hashring
+					tmpDiscoveredIps := []string{}
+					for _, discoveredIp := range discoveredIps {
+						// Craft a human readable string list of discovered IPs
+						tmpDiscoveredIps = append(tmpDiscoveredIps, discoveredIp.String())
+
+						//
+						server := discoveredIp.String() + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
+						if IsIPv6(discoveredIp.String()) {
+							server = "[" + server + "]" + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
+						}
+						if !slices.Contains(serverPool, server) {
+							p.Hashring.AddServer(server)
+						}
+					}
+
+					// Delete dead servers from hashring
+					for _, server := range serverPool {
+						if !slices.Contains(tmpDiscoveredIps, server) {
+							p.Hashring.RemoveServer(server)
+						}
+					}
+
+					// Update serverPool
+					serverPool = tmpDiscoveredIps
+					globals.Application.Logger.Infof("hashring updated: %v", serverPool)
+					time.Sleep(syncDuration)
+				}
+			}()
 		}
 
 		// Run the proxy

@@ -14,13 +14,11 @@ import (
 // Custom writer that captures only headers
 type headerCaptureWriter struct {
 	io.Writer
-	//headerCaptured bool
-
-	//headerCaptured chan<- struct{}
 	headerFound bool
 }
 
-// TODO
+// headerCaptureWriter.Write is a writer that captures only the headers of an HTTP message
+// It stops writing after the headers are found
 func (w *headerCaptureWriter) Write(p []byte) (n int, err error) {
 	if !w.headerFound {
 
@@ -46,45 +44,64 @@ func (w *headerCaptureWriter) Write(p []byte) (n int, err error) {
 	return w.Writer.Write(p)
 }
 
-// OLD
+// sendErrorResponse send a static error response to the client
+func sendErrorResponse(conn net.Conn, statusCode int, message string) error {
+	// Create the HTTP response header
+	response := fmt.Sprintf(
+		"HTTP/1.1 %d %s\r\n"+
+			"Content-Type: text/plain\r\n"+
+			"Content-Length: %d\r\n"+
+			"\r\n"+
+			"%s",
+		statusCode,
+		http.StatusText(statusCode),
+		len(message),
+		message,
+	)
+
+	// Send the response through the connection
+	_, err := conn.Write([]byte(response))
+	return err
+}
+
+// handleConnection handles an incoming client connection
 func (p *Proxy) handleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 
-	var bufferRequest bytes.Buffer
+	//var bufferRequest bytes.Buffer
 	var bufferResponse bytes.Buffer
 
 	// Create an HTTP data reader from the client
 	// It's size limited as only the path is needed
 	// requestReader := io.LimitReader(clientConn, 1024)
-	// req, err := http.ReadRequest(bufio.NewReader(requestReader))
-	// if err != nil {
-	// 	globals.Application.Logger.Errorf("error reading request: %v", err)
-	// 	return
-	// }
+	httpRequest, err := http.ReadRequest(bufio.NewReader(clientConn))
+	if err != nil {
+		globals.Application.Logger.Errorf("error reading request: %v", err)
+		return
+	}
 
 	// Connect hashring-assigned backend server
-	//p.Config.HashKey.Pattern = req.URL.Path
-	//hashKey := p.Hashring.GetServer(req.URL.Path)
+	hashKey := ReplaceRequestTagsString(httpRequest, p.Config.HashKey.Pattern)
+	hashKey = p.Hashring.GetServer(hashKey)
 
-	//p.ReplaceRequestTagsString(req, p.Config.HashKey.Pattern)
-
-	serverConn, err := net.Dial("tcp", p.Hashring.GetServer("/text")) // construir el key
+	serverConn, err := net.Dial("tcp", hashKey)
 	if err != nil {
 		globals.Application.Logger.Errorf("error connecting to server: %v", err)
+		sendErrorResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
 		return
 	}
 	defer serverConn.Close()
 
-	// Send the request to the backend server
-	// err = req.Write(serverConn)
-	// if err != nil {
-	// 	globals.Application.Logger.Errorf("error writing request to server: %v", err)
-	// 	return
-	// }
+	// Write the request to the backend server as previously
+	// we empty the buffer for reading the headers
+	err = httpRequest.Write(serverConn)
+	if err != nil {
+		globals.Application.Logger.Errorf("error writing request to server: %v", err)
+		return
+	}
 
-	//resp := &http.Response{}
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 
 	// Read the server response and forward it to the client
 	go func() {
@@ -101,30 +118,31 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 	}()
 
 	// Read the client request and forward it to the server
-	go func() {
-		defer wg.Done()
+	// go func() {
+	// 	defer wg.Done()
 
-		headerWriter := &headerCaptureWriter{Writer: &bufferRequest}
-		multiWriter := io.MultiWriter(serverConn, headerWriter)
+	// 	// TODO: Decide if we want to capture the headers here or on top of the function
+	// 	headerWriter := &headerCaptureWriter{Writer: &bufferRequest}
+	// 	multiWriter := io.MultiWriter(serverConn, headerWriter)
 
-		_, err = io.Copy(multiWriter, clientConn)
-		if err != nil {
-			globals.Application.Logger.Errorf("error copying from client to server: %s", err.Error())
-		}
-	}()
+	// 	_, err = io.Copy(multiWriter, clientConn)
+	// 	if err != nil {
+	// 		globals.Application.Logger.Errorf("error copying from client to server: %s", err.Error())
+	// 	}
+	// }()
 
 	// Wait for both goroutines to finish
 	wg.Wait()
 
-	// Leer el bufferRequest como una solicitud HTTP
-	bufferRequestReader := bufio.NewReader(&bufferRequest)
-	httpRequest, err := http.ReadRequest(bufferRequestReader)
-	if err != nil {
-		fmt.Printf("error reading HTTP request: %s\n", err.Error())
-		return
-	}
+	// // Read bufferRequest as an HTTP request
+	// bufferRequestReader := bufio.NewReader(&bufferRequest)
+	// httpRequest, err := http.ReadRequest(bufferRequestReader)
+	// if err != nil {
+	// 	fmt.Printf("error reading HTTP request: %s\n", err.Error())
+	// 	return
+	// }
 
-	// Leer el bufferResponse como una solicitud HTTP
+	// Read bufferResponse as an HTTP response
 	bufferResponseReader := bufio.NewReader(&bufferResponse)
 	httpResponse, err := http.ReadResponse(bufferResponseReader, httpRequest)
 	if err != nil {
@@ -132,7 +150,7 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 		return
 	}
 
-	// TODO: Refine this log
+	// TODO: Refine this log a bit
 	if globals.Application.Config.Logs.ShowAccessLogs {
 		logFields := BuildLogFields(httpRequest, httpResponse, globals.Application.Config.Logs.AccessLogsFields)
 		globals.Application.Logger.Infow("received request", logFields...)
@@ -140,8 +158,6 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 }
 
 func (p *Proxy) RunHttp() (err error) {
-
-	//listenAddr := strings.Join([]string{p.Config.Listener.Address, strconv.Itoa(p.Config.Listener.Port)}, ":")
 
 	// Launch the listener
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(p.Config.Listener.Address), Port: p.Config.Listener.Port})
