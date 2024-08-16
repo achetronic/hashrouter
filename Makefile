@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= ghcr.io/prosimcorp/hitman:latest
+IMG ?= ghcr.io/prosimcorp/hashrouter:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -83,7 +83,7 @@ check-go-target: ## Check presente of GOOS and GOARCH vars.
 
 .PHONY: build
 build: fmt vet check-go-target ## Build CLI binary.
-	go build -o bin/hitman-$(GOOS)-$(GOARCH) cmd/main.go
+	go build -o bin/hashrouter-$(GOOS)-$(GOARCH) cmd/main.go
 
 .PHONY: run
 run: fmt vet ## Run a controller from your host.
@@ -125,9 +125,9 @@ package: check-go-target ## Package binary.
 	@mkdir -p dist
 
 	@if [ "$(OS)" = "linux" ]; then \
-		tar --transform="s/hitman-$(GOOS)-$(GOARCH)/hitman/" -cvzf dist/$(PACKAGE_NAME) -C bin hitman-$(GOOS)-$(GOARCH) -C ../ LICENSE README.md; \
+		tar --transform="s/hashrouter-$(GOOS)-$(GOARCH)/hashrouter/" -cvzf dist/$(PACKAGE_NAME) -C bin hashrouter-$(GOOS)-$(GOARCH) -C ../ LICENSE README.md; \
 	elif [ "$(OS)" = "darwin" ]; then \
-		tar -cvzf dist/$(PACKAGE_NAME) -s '/hitman-$(GOOS)-$(GOARCH)/hitman/' -C bin hitman-$(GOOS)-$(GOARCH) -C ../ LICENSE README.md; \
+		tar -cvzf dist/$(PACKAGE_NAME) -s '/hashrouter-$(GOOS)-$(GOARCH)/hashrouter/' -C bin hashrouter-$(GOOS)-$(GOARCH) -C ../ LICENSE README.md; \
 	else \
 		echo "Unsupported OS: $(GOOS)"; \
 		exit 1; \

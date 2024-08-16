@@ -1,24 +1,17 @@
 package globals
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
-// CopyMap return a map that is a real copy of the original
-// Ref: https://go.dev/blog/maps
-func CopyMap(src map[string]interface{}) map[string]interface{} {
-	m := make(map[string]interface{}, len(src))
-	for k, v := range src {
-		m[k] = v
+// capitalizeWords converts a string to title case (capitalizes the first letter of each word)
+func CapitalizeWords(input string) string {
+	words := strings.Split(input, "-")
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = string(unicode.ToUpper(rune(word[0]))) + strings.ToLower(word[1:])
+		}
 	}
-	return m
-}
-
-// SplitCommaSeparatedValues get a list of strings and return a new list
-// where each element containing commas is divided in separated elements
-func SplitCommaSeparatedValues(input []string) []string {
-	var result []string
-	for _, item := range input {
-		parts := strings.Split(item, ",")
-		result = append(result, parts...)
-	}
-	return result
+	return strings.Join(words, "-")
 }

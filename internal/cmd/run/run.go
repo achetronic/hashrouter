@@ -2,10 +2,11 @@ package run
 
 import (
 	"fmt"
-	"hitman/internal/config"
-	"hitman/internal/globals"
-	"hitman/internal/processor"
+	"hashrouter/internal/config"
+	"hashrouter/internal/globals"
+	"hashrouter/internal/proxy"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -41,8 +42,7 @@ func NewCommand() *cobra.Command {
 	//
 	cmd.Flags().String("log-level", "info", "Verbosity level for logs")
 	cmd.Flags().Bool("disable-trace", true, "Disable showing traces in logs")
-	cmd.Flags().String("config", "hitman.yaml", "Path to the YAML config file")
-	cmd.Flags().Bool("dry-run", false, "Disable performing actual actions")
+	cmd.Flags().String("config", "hashrouter.yaml", "Path to the YAML config file")
 
 	return cmd
 }
@@ -61,7 +61,6 @@ func RunCommand(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf(LogLevelFlagErrorMessage, err)
 	}
-	globals.ExecContext.LogLevel = logLevelFlag
 
 	disableTraceFlag, err := cmd.Flags().GetBool("disable-trace")
 	if err != nil {
@@ -73,45 +72,31 @@ func RunCommand(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	dryRunFlag, err := cmd.Flags().GetBool("dry-run")
-	if err != nil {
-		log.Fatalf(DryRunFlagErrorMessage, err)
-	}
-	globals.ExecContext.DryRun = dryRunFlag
-
 	/////////////////////////////
 	// EXECUTION FLOW RELATED
 	/////////////////////////////
 
-	globals.ExecContext.Logger.Infof("starting Hitman. Getting ready to kill some targets")
+	globals.Application.Logger.Infof("starting hashrouter. Getting ready to route some targets")
 
 	// Parse and store the config
 	configContent, err := config.ReadFile(configPath)
 	if err != nil {
-		globals.ExecContext.Logger.Fatalf(fmt.Sprintf(ConfigNotParsedErrorMessage, err))
+		globals.Application.Logger.Fatalf(fmt.Sprintf(ConfigNotParsedErrorMessage, err))
 	}
-	globals.ExecContext.Config = configContent
+	globals.Application.Config = configContent
 
 	//
-	duration, err := time.ParseDuration(configContent.Spec.Synchronization.Time)
-	if err != nil {
-		globals.ExecContext.Logger.Fatalf(UnableParseDurationErrorMessage, err)
+	var waitGroup sync.WaitGroup
+	for _, proxyConfig := range globals.Application.Config.Proxies {
+
+		proxyObj := proxy.NewProxy(proxyConfig)
+
+		waitGroup.Add(1)
+		go proxyObj.Run(&waitGroup)
+
+		time.Sleep(2 * time.Second) // TODO: unhardcode this
 	}
 
-	//
-	processorObj, err := processor.NewProcessor()
-	if err != nil {
-		globals.ExecContext.Logger.Infof("error creating processor: %s", err.Error())
-	}
+	waitGroup.Wait()
 
-	for {
-		globals.ExecContext.Logger.Info("syncing resources")
-		err = processorObj.SyncResources()
-		if err != nil {
-			globals.ExecContext.Logger.Infof("error syncing resources: %s", err)
-		}
-
-		globals.ExecContext.Logger.Infof("syncing again in %s", duration.String())
-		time.Sleep(duration)
-	}
 }

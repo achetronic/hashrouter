@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"hitman/internal/cmd"
+	"hashrouter/internal/cmd"
 )
 
 func main() {

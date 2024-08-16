@@ -5,15 +5,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"hitman/internal/cmd/run"
-	"hitman/internal/cmd/version"
+	"hashrouter/internal/cmd/run"
+	"hashrouter/internal/cmd/version"
 )
 
 const (
-	descriptionShort = `A daemon for Kubernetes to kill target resources under user-defined conditions`
+	descriptionShort = `A proxy to...`
 	descriptionLong  = `
-	A daemon for Kubernetes to kill target resources under user-defined conditions.
-	Conditions are so powerful that they can be defined using Helm template.
+	A proxy to...
 	`
 )
 

@@ -11,7 +11,7 @@ const (
 
 	descriptionLong = `
 	Help provides help for any command in the application.
-	Simply type hitman help [path to command] for full details.`
+	Simply type hashrouter help [path to command] for full details.`
 )
 
 func NewCommand() *cobra.Command {

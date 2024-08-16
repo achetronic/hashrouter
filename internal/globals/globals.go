@@ -2,7 +2,7 @@ package globals
 
 import (
 	"context"
-	"hitman/api/v1alpha1"
+	"hashrouter/api"
 	"time"
 
 	"go.uber.org/zap"
@@ -10,20 +10,18 @@ import (
 )
 
 var (
-	ExecContext = ExecutionContext{
+	Application = ApplicationT{
 		Context: context.Background(),
 	}
 )
 
-// ExecutionContext TODO
-type ExecutionContext struct {
+// ApplicationT TODO
+type ApplicationT struct {
 	Context context.Context
 	Logger  zap.SugaredLogger
-	Config  v1alpha1.ConfigT
+	Config  api.ConfigT
 
 	//
-	LogLevel string
-	DryRun   bool
 }
 
 // SetLogger TODO
@@ -50,6 +48,6 @@ func SetLogger(logLevel string, disableTrace bool) (err error) {
 		return err
 	}
 
-	ExecContext.Logger = *logger.Sugar()
+	Application.Logger = *logger.Sugar()
 	return nil
 }

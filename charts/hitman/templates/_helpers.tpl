@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "hitman.name" -}}
+{{- define "hashrouter.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "hitman.fullname" -}}
+{{- define "hashrouter.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "hitman.chart" -}}
+{{- define "hashrouter.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "hitman.labels" -}}
-helm.sh/chart: {{ include "hitman.chart" . }}
-{{ include "hitman.selectorLabels" . }}
+{{- define "hashrouter.labels" -}}
+helm.sh/chart: {{ include "hashrouter.chart" . }}
+{{ include "hashrouter.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "hitman.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "hitman.name" . }}
+{{- define "hashrouter.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hashrouter.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "hitman.serviceAccountName" -}}
+{{- define "hashrouter.serviceAccountName" -}}
 {{- if .Values.agent.serviceAccount.create }}
-{{- default (include "hitman.fullname" .) .Values.agent.serviceAccount.name }}
+{{- default (include "hashrouter.fullname" .) .Values.agent.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.agent.serviceAccount.name }}
 {{- end }}

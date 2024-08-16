@@ -2,9 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "hitman.fullname" . }}-custom
+  name: {{ include "hashrouter.fullname" . }}-custom
   labels:
-    {{- include "hitman.labels" . | nindent 4 }}
+    {{- include "hashrouter.labels" . | nindent 4 }}
   {{- if .Values.customClusterRole.clusterRoleBinding.annotations }}
   annotations:
     {{- range $key, $value := .Values.customClusterRole.clusterRoleBinding.annotations }}
@@ -14,9 +14,9 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "hitman.fullname" . }}-custom
+  name: {{ include "hashrouter.fullname" . }}-custom
 subjects:
   - kind: ServiceAccount
-    name: {{ include "hitman.serviceAccountName" . }}
+    name: {{ include "hashrouter.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}

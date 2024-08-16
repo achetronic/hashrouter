@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hitman.fullname" . }}
+  name: {{ include "hashrouter.fullname" . }}
   labels:
-    {{- include "hitman.labels" . | nindent 4 }}
+    {{- include "hashrouter.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.agent.replicaCount }}
   selector:
     matchLabels:
-      {{- include "hitman.selectorLabels" . | nindent 6 }}
+      {{- include "hashrouter.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.agent.podAnnotations }}
@@ -16,13 +16,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "hitman.selectorLabels" . | nindent 8 }}
+        {{- include "hashrouter.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.agent.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "hitman.serviceAccountName" . }}
+      serviceAccountName: {{ include "hashrouter.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
       containers:
@@ -30,10 +30,10 @@ spec:
           image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
           command:
-            - /hitman
+            - /hashrouter
             - run
             - --config
-            - /etc/agent/hitman.yaml
+            - /etc/agent/hashrouter.yaml
 
           {{- with .Values.agent.extraArgs }}
           args:
@@ -89,7 +89,7 @@ spec:
       volumes:
         - name: agent-config
           configMap:
-            name: {{ include "hitman.fullname" . }}-agent-config
+            name: {{ include "hashrouter.fullname" . }}-agent-config
         {{- with .Values.agent.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

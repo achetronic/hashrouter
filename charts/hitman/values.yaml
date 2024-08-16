@@ -1,10 +1,10 @@
-# Default values for hitman.
+# Default values for hashrouter.
 
 nameOverride: ""
 fullnameOverride: ""
 
 # Following custom ClusterRole is a place where to add the type of resources
-# allowed to be treated by Hitman.
+# allowed to be treated by hashrouter.
 customClusterRole:
   # Specifies whether a custom clusterRole should be created
   create: true
@@ -28,7 +28,7 @@ agent:
   # Specify the configuration
   config: |
     # A complete example in the upstream repository
-    # Ref: https://github.com/achetronic/hitman
+    # Ref: https://github.com/achetronic/hashrouter
 
   serviceAccount:
     # Specifies whether a service account should be created
@@ -37,12 +37,12 @@ agent:
     annotations: { }
     # The name of the service account to use.
     # If not set and create is true, a name is generated using the fullname template
-    name: "hitman"
+    name: "hashrouter"
 
   replicaCount: 1
 
   image:
-    repository: ghcr.io/achetronic/hitman
+    repository: ghcr.io/achetronic/hashrouter
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""
@@ -50,7 +50,7 @@ agent:
   imagePullSecrets: []
 
   # Extra args to pass to the agent.
-  # Ref: https://github.com/achetronic/hitman?tab=readme-ov-file#flags
+  # Ref: https://github.com/achetronic/hashrouter?tab=readme-ov-file#flags
   # Example:
   # - --log-level=debug
   extraArgs: []

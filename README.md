@@ -1,7 +1,7 @@
-# Hitman
+# hashrouter
 
-![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/achetronic/hitman)
-![GitHub](https://img.shields.io/github/license/achetronic/hitman)
+![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/achetronic/hashrouter)
+![GitHub](https://img.shields.io/github/license/achetronic/hashrouter)
 
 ![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UCeSb3yfsPNNVr13YsYNvCAw?label=achetronic&link=http%3A%2F%2Fyoutube.com%2Fachetronic)
 ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/achetronic?style=flat&logo=twitter&link=https%3A%2F%2Ftwitter.com%2Fachetronic)
@@ -25,16 +25,16 @@ They are described in the following table:
 
 | Name              | Description                    |    Default    | Example                  |
 |:------------------|:-------------------------------|:-------------:|:-------------------------|
-| `--config`        | Path to the YAML config file   | `hitman.yaml` | `--config ./hitman.yaml` |
+| `--config`        | Path to the YAML config file   | `hashrouter.yaml` | `--config ./hashrouter.yaml` |
 | `--log-level`     | Verbosity level for logs       |    `info`     | `--log-level info`       |
 | `--disable-trace` | Disable showing traces in logs |   `false`     | `--disable-trace`        |
 
 > Output is thrown always in JSON as it is more suitable for automations
 
 ```console
-hitman run \
+hashrouter run \
     --log-level=info
-    --config="./hitman.yaml"
+    --config="./hashrouter.yaml"
 ```
 
 ## Examples
@@ -45,7 +45,7 @@ Here you have a complete example. More up-to-date one will always be maintained 
 
 ```yaml
 version: v1alpha1
-kind: Hitman
+kind: hashrouter
 metadata:
   name: killing-sample
 spec:
@@ -100,26 +100,26 @@ and Docker images to make it easy to be deployed however wanted
 
 ### Binaries
 
-Binary files for most popular platforms will be added to the [releases](https://github.com/achetronic/hitman/releases)
+Binary files for most popular platforms will be added to the [releases](https://github.com/achetronic/hashrouter/releases)
 
 ### Kubernetes
 
-You can deploy `hitman` in Kubernetes using Helm as follows:
+You can deploy `hashrouter` in Kubernetes using Helm as follows:
 
 ```console
-helm repo add hitman https://achetronic.github.io/hitman/
+helm repo add hashrouter https://achetronic.github.io/hashrouter/
 
-helm upgrade --install --wait hitman \
-  --namespace hitman \
-  --create-namespace achetronic/hitman
+helm upgrade --install --wait hashrouter \
+  --namespace hashrouter \
+  --create-namespace achetronic/hashrouter
 ```
 
-> More information and Helm packages [here](https://achetronic.github.io/hitman/)
+> More information and Helm packages [here](https://achetronic.github.io/hashrouter/)
 
 
 ### Docker
 
-Docker images can be found in GitHub's [packages](https://github.com/achetronic/hitman/pkgs/container/hitman) 
+Docker images can be found in GitHub's [packages](https://github.com/achetronic/hashrouter/pkgs/container/hashrouter) 
 related to this repository
 
 > Do you need it in a different container registry? I think this is not needed, but if I'm wrong, please, let's discuss 

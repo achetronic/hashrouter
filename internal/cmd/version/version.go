@@ -10,7 +10,7 @@ import (
 const (
 	descriptionShort = `Print the current version`
 	descriptionLong  = `
-	Version show the current hitman version client.`
+	Version show the current hashrouter version client.`
 )
 
 func NewCommand() *cobra.Command {
