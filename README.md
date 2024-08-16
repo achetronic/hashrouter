@@ -1,10 +1,10 @@
 # Helm Charts
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-![Release Charts](https://github.com/achetronic/hitman/workflows/Release%20Charts/badge.svg?branch=main)
-[![Releases downloads](https://img.shields.io/github/downloads/achetronic/hitman/total.svg)](https://github.com/achetronic/hitman/releases)
+![Release Charts](https://github.com/achetronic/hashrouter/workflows/Release%20Charts/badge.svg?branch=main)
+[![Releases downloads](https://img.shields.io/github/downloads/achetronic/hashrouter/total.svg)](https://github.com/achetronic/hashrouter/releases)
 
-Hitman Helm Charts
+hashrouter Helm Charts
 
 ## Usage
 
@@ -14,13 +14,13 @@ Please refer to Helm's [documentation](https://helm.sh/docs/) to get started.
 Once Helm is set up properly, add the repo as follows:
 
 ```console
-helm repo add hitman https://achetronic.github.io/hitman/
+helm repo add hashrouter https://achetronic.github.io/hashrouter/
 ```
 
 You can then run the following command to see the charts.
 
 ```console
-helm search repo hitman
+helm search repo hashrouter
 ```
 
 ## How to contribute
