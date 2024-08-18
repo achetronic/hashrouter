@@ -100,6 +100,11 @@ proxies:
       # By default, the value is 4KB
       http_request_max_headers_size_bytes: 65536 # 64KB
 
+      # (optional) Hashring always assigns the same backend to the hashkey.
+      # If the backend is down, you can try another backend until exaushting all of them
+      # by enabling this option
+      try_another_backend_on_failure: true
+
 ```
 
 > ATTENTION:

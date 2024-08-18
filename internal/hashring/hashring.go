@@ -2,6 +2,7 @@ package hashring
 
 import (
 	"hash/crc32"
+	"slices"
 	"sort"
 	"strconv"
 )
@@ -55,4 +56,29 @@ func (h *HashRing) GetServer(key string) string {
 		idx = 0
 	}
 	return h.nodes[idx].server
+}
+
+// GetServerList returns the list of servers in the hash ring
+// This function is useful as servers can be defined by static configuration
+// or discovered by DNS
+func (h *HashRing) GetServerList() (servers []string) {
+
+	numRealNodes := len(h.nodes) / h.vnodesPerNode
+
+	for _, nodeValue := range h.nodes {
+
+		if !slices.Contains(servers, nodeValue.server) {
+			servers = append(servers, nodeValue.server)
+		}
+
+		if len(servers) == numRealNodes {
+			break
+		}
+	}
+
+	// Sorting is performed to ensure that the order of servers is always the same
+	// This will help to avoid unnecessary changes for the functions using this list
+	slices.Sort(servers)
+
+	return servers
 }

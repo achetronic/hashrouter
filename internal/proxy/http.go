@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+
+	"k8s.io/utils/strings/slices"
 )
 
 const (
@@ -146,6 +148,8 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 
 // handleConnection handles an incoming client connection
 func (p *Proxy) handleConnection(clientConn net.Conn) {
+	var err error
+
 	defer clientConn.Close()
 
 	// Create an HTTP data reader from the client.
@@ -169,11 +173,42 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 
 	// Connect hashring-assigned backend server
 	hashKey := ReplaceRequestTagsString(httpRequestHeaders, p.Config.HashKey.Pattern)
-	hashKey = p.Hashring.GetServer(hashKey)
+	dueBackend := p.Hashring.GetServer(hashKey)
 
-	serverConn, err := net.Dial("tcp", hashKey)
+	// Backend connection is always performed to the hashring-assigned backend server.
+	// When the user enabled 'options.try_another_backend_on_failure', the proxy will try to connect
+	// to the next server in the hashring until a connection is established or all servers are tried.
+	hashringServerPool := p.Hashring.GetServerList()
+	dueBackendPoolIndex := slices.Index(hashringServerPool, dueBackend)
+
+	var serverConn net.Conn
+	for i := 0; i < len(hashringServerPool); i++ {
+
+		indexToTry := (dueBackendPoolIndex + i)
+
+		// When the loop is in last item, start from the beginning
+		if indexToTry >= len(hashringServerPool) {
+			indexToTry = indexToTry - len(hashringServerPool)
+		}
+
+		// Establish connection to the server
+		serverConn, err = net.Dial("tcp", hashringServerPool[indexToTry])
+		if err == nil {
+			break
+		}
+
+		// TODO: Discuss this message usefulness with more people
+		globals.Application.Logger.Debugf("failed connecting to server '%s': %v", hashringServerPool[indexToTry], err.Error())
+
+		// There is an error but user does not want to try another backend
+		if !p.Config.Options.TryAnotherBackendOnFailure {
+			globals.Application.Logger.Infof("'options.try_another_backend_on_failure' is disabled, skip trying another backend.")
+			break
+		}
+	}
+
 	if err != nil {
-		globals.Application.Logger.Errorf("error connecting to server: %v", err.Error())
+		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", err.Error())
 		sendErrorResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
 		return
 	}
