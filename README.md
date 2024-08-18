@@ -90,9 +90,15 @@ proxies:
 
     # Aditional options such as hashing mode or TTL
     options:
-      protocol: http # http or http2
+      protocol: http
+
+      # protocol: http2
       # certificate: /etc/ssl/certs/achetronic.pem
       # key: /etc/ssl/private/achetronic.key
+
+      # (optional) The maximum size y bytes of headers in a request
+      # By default, the value is 4KB
+      http_request_max_headers_size_bytes: 65536 # 64KB
 
 ```
 
