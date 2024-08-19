@@ -3,26 +3,6 @@
 nameOverride: ""
 fullnameOverride: ""
 
-# Following custom ClusterRole is a place where to add the type of resources
-# allowed to be treated by hashrouter.
-customClusterRole:
-  # Specifies whether a custom clusterRole should be created
-  create: true
-
-  # Annotations to add to the clusterRole
-  annotations: {}
-
-  # A set of rules as documented here : https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-  rules:
-  - apiGroups: ['*']
-    resources: ['*']
-    verbs: ['*']
-
-  clusterRoleBinding:
-    # Annotations to add to the clusterRoleBinding
-    annotations: {}
-
-# TODO
 agent:
 
   # Specify the configuration
@@ -105,3 +85,16 @@ agent:
   tolerations: []
 
   affinity: {}
+
+# Define some extra resources to be created
+# This section is useful when you need ExternalResource or Secrets, etc.
+extraResources: []
+  # - apiVersion: v1
+  #   kind: Secret
+  #   metadata:
+  #     name: example-secret
+  #     labels: {}
+  #   type: Opaque
+  #   stringData:
+  #     username: admin
+  #     password: mypassword
