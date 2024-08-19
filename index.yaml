@@ -2,6 +2,28 @@ apiVersion: v1
 entries:
   hashrouter:
   - apiVersion: v2
+    appVersion: 0.3.2
+    created: "2024-08-19T19:41:20.699360228Z"
+    description: A Helm chart for hashrouter, a A zero-dependencies HTTP proxy  that
+      truly routes requests hash-consistently
+    digest: ed5109c8d966efd2dda61b1db1b717901eecd70daaf24b281fd0450587aaf9ab
+    home: https://github.com/achetronic/hashrouter
+    keywords:
+    - hashrouter
+    - kubernetes
+    kubeVersion: '>=1.22.0-0'
+    maintainers:
+    - email: donfumero@gmail.com
+      name: Alby Hernández
+      url: https://github.com/achetronic
+    name: hashrouter
+    sources:
+    - https://github.com/achetronic/hashrouter
+    type: application
+    urls:
+    - hashrouter-0.3.2.tgz
+    version: 0.3.2
+  - apiVersion: v2
     appVersion: 0.3.1
     created: "2024-08-19T18:56:43.334251812Z"
     description: A Helm chart for hashrouter, a A zero-dependencies HTTP proxy  that
@@ -89,4 +111,4 @@ entries:
     urls:
     - hashrouter-0.1.0.tgz
     version: 0.1.0
-generated: "2024-08-19T18:56:43.334271599Z"
+generated: "2024-08-19T19:41:20.699388702Z"
