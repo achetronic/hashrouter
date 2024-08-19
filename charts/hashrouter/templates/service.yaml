@@ -1,0 +1,59 @@
+{{ if .Values.agent.service.enabled }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hashrouter.fullname" . }}
+  labels:
+    {{- include "hashrouter.labels" . | nindent 4 }}
+  {{- with .Values.agent.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+
+  {{- with .Values.agent.service.type }}
+  type: {{ . }}
+  {{- end }}
+
+  {{- with .Values.agent.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+
+  {{- if (semverCompare ">= 1.23-0" .Capabilities.KubeVersion.Version) }}
+  {{- with .Values.agent.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ . }}
+  {{- end }}
+  {{- with .Values.agent.service.ipFamilies }}
+  ipFamilies: {{ . | toYaml | nindent 2 }}
+  {{- end }}
+  {{- end }}
+
+  {{- with .Values.agent.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+
+  {{- with .Values.agent.service.publishNotReadyAddresses }}
+  publishNotReadyAddresses: {{ . }}
+  {{- end}}
+
+  ports:
+  {{ range $key, $value := .Values.agent.service.ports }}
+    - name: {{ $value.name }}
+      port: {{ $value.port }}
+      targetPort: {{ $value.targetPort }}
+
+      {{- with $value.protocol }}
+      protocol: {{ . }}
+      {{- end }}
+
+      {{- if and ($value.nodePort) (eq ($.Values.agent.service.type | toString) "NodePort") }}
+      nodePort: {{ $value.nodePort }}
+      {{- end }}
+  {{- end}}
+
+  selector:
+    {{- include "hashrouter.selectorLabels" . | nindent 4 }}
+
+{{- end }}
+
