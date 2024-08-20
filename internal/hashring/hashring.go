@@ -5,9 +5,13 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 type HashRing struct {
+	sync.RWMutex
+
+	//
 	nodes         []Node
 	vnodesPerNode int
 }
@@ -24,6 +28,10 @@ func NewHashRing(vnodesPerNode int) *HashRing {
 }
 
 func (h *HashRing) AddServer(server string) {
+	h.Lock()
+	defer h.Unlock()
+
+	//
 	for i := 0; i < h.vnodesPerNode; i++ {
 		vnode := server + "#" + strconv.Itoa(i)
 		hash := int(crc32.ChecksumIEEE([]byte(vnode)))
@@ -35,6 +43,10 @@ func (h *HashRing) AddServer(server string) {
 }
 
 func (h *HashRing) RemoveServer(server string) {
+	h.Lock()
+	defer h.Unlock()
+
+	//
 	var newNodes []Node
 	for _, node := range h.nodes {
 		if node.server != server {
@@ -45,6 +57,10 @@ func (h *HashRing) RemoveServer(server string) {
 }
 
 func (h *HashRing) GetServer(key string) string {
+	h.RLock()
+	defer h.RUnlock()
+
+	//
 	if len(h.nodes) == 0 {
 		return ""
 	}
@@ -62,7 +78,10 @@ func (h *HashRing) GetServer(key string) string {
 // This function is useful as servers can be defined by static configuration
 // or discovered by DNS
 func (h *HashRing) GetServerList() (servers []string) {
+	h.RLock()
+	defer h.RUnlock()
 
+	//
 	numRealNodes := len(h.nodes) / h.vnodesPerNode
 
 	for _, nodeValue := range h.nodes {

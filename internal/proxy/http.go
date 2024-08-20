@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 
 	"k8s.io/utils/strings/slices"
 )
@@ -70,17 +69,27 @@ func sendErrorResponse(conn net.Conn, statusCode int, message string) error {
 
 	// Send the response through the connection
 	_, err := conn.Write([]byte(response))
-	return err
+	if err != nil {
+		return fmt.Errorf("error sending response: %s", err.Error())
+	}
+
+	err = conn.Close()
+	if err != nil {
+		return fmt.Errorf("client connection close error: %s", err)
+	}
+
+	return nil
 }
 
 // peekHeadersOnly get a connection reader and reads only the headers of an HTTP request
 // without consuming the reader buffer
-func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*http.Request, error) {
+func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*http.Request, []byte, error) {
 	var peekBuffer []byte
+
 	for {
 		peeked, err := connectionReader.Peek(len(peekBuffer) + 1)
 		if err != nil && err != bufio.ErrBufferFull {
-			return nil, err
+			return nil, peekBuffer, err
 		}
 		peekBuffer = append(peekBuffer, peeked[len(peekBuffer):]...)
 
@@ -91,7 +100,7 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 
 		// Limit the buffer size to avoid consuming too much memory
 		if len(peekBuffer) > maxHeadersSizeBytes {
-			return nil, fmt.Errorf("headers too large")
+			return nil, peekBuffer, fmt.Errorf("headers too large")
 		}
 	}
 
@@ -102,7 +111,7 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 	// It will be parsed later to obtain request data
 	requestLine, err := peekedReader.ReadString('\n')
 	if err != nil {
-		return nil, err
+		return nil, peekBuffer, err
 	}
 
 	// Read the headers of the request
@@ -110,7 +119,7 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 	for {
 		line, err := peekedReader.ReadString('\n')
 		if err != nil {
-			return nil, err
+			return nil, peekBuffer, err
 		}
 
 		// Remember headers are separated from the body by a double CRLF
@@ -120,7 +129,7 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 		}
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("malformed header line: %s", line)
+			return nil, peekBuffer, fmt.Errorf("malformed header line: %s", line)
 		}
 		requestHeaders.Add(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 	}
@@ -128,7 +137,7 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 	// Parse the request line to get the method, URL and protocol version
 	requestLineParts := strings.Split(requestLine, " ")
 	if len(requestLineParts) != 3 {
-		return nil, fmt.Errorf("malformed request line: %s", requestLine)
+		return nil, peekBuffer, fmt.Errorf("malformed request line: %s", requestLine)
 	}
 	requestMethod := requestLineParts[0]
 	requestUrl := requestLineParts[1]
@@ -143,19 +152,17 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 		Host:       requestHeaders.Get("Host"),
 		RequestURI: requestUrl,
 	}
-	return req, nil
+	return req, peekBuffer, nil
 }
 
 // handleConnection handles an incoming client connection
 func (p *Proxy) handleConnection(clientConn net.Conn) {
 	var err error
 
-	defer clientConn.Close()
-
 	// Create an HTTP data reader from the client.
 	// Created here as headers are needed to determine the backend server
-	// Remember once a reader is linked to a connection, io.Copy can not read directly from the connection pointer
-	// and needs to read the stream from this reader
+	// Remember once a reader is linked to a connection, and has consumed bytes from it,
+	// those bytes are not available for io.Copy or other readers
 	clientConnectionReader := bufio.NewReader(clientConn)
 
 	// Peek the headers of the HTTP request
@@ -164,10 +171,14 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 		httpRequestHeadersMaxSizeBytes = p.Config.Options.HttpRequestMaxHeadersSizeBytes
 	}
 
-	httpRequestHeaders, err := peekHeadersOnly(clientConnectionReader, httpRequestHeadersMaxSizeBytes)
+	httpRequestHeaders, httpRequestHeadersBuffer, err := peekHeadersOnly(clientConnectionReader, httpRequestHeadersMaxSizeBytes)
 	if err != nil {
 		globals.Application.Logger.Errorf("error reading HTTP request headers: %v", err.Error())
-		sendErrorResponse(clientConn, http.StatusBadRequest, "Bad Request")
+		err = sendErrorResponse(clientConn, http.StatusBadRequest, "Bad Request")
+		if err != nil {
+			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
+		}
+
 		return
 	}
 
@@ -209,49 +220,93 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 
 	if err != nil {
 		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", err.Error())
-		sendErrorResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
+		err = sendErrorResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
+		if err != nil {
+			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
+		}
 		return
 	}
-	defer serverConn.Close()
 
-	//
-	var wg sync.WaitGroup
-	wg.Add(2)
+	/////////////////////////////////////////////////////////
+
+	clientConnClosed := make(chan struct{}, 1)
+	serverConnClosed := make(chan struct{}, 1)
 
 	// Read the server response and forward it to the client
+	// This routine is launched before, to keep the returning communication channel open
 	var bufferResponse bytes.Buffer
 	go func() {
-		defer wg.Done()
 
+		// Capture the headers of the response while it's transmitted
 		headerWriter := &headerCaptureWriter{Writer: &bufferResponse}
 		multiWriter := io.MultiWriter(clientConn, headerWriter)
 
+		//
 		_, err = io.Copy(multiWriter, serverConn)
 		if err != nil {
 			globals.Application.Logger.Errorf("error copying from server to client: %v", err)
 		}
 
+		if err := serverConn.Close(); err != nil {
+			globals.Application.Logger.Errorf("server connection close error: %s", err)
+		}
+		serverConnClosed <- struct{}{}
 	}()
 
 	// Read the client request and forward it to the server
 	go func() {
-		defer wg.Done()
+		// As headers are already read, we need to craft a new composed reader
+		// to join the headers and the rest of the request
+		requestHeadersReader := bytes.NewReader(httpRequestHeadersBuffer)
+		composedReader := io.MultiReader(requestHeadersReader, clientConn)
 
-		_, err = io.Copy(serverConn, clientConnectionReader)
+		//
+		_, err = io.Copy(serverConn, composedReader)
 		if err != nil {
 			globals.Application.Logger.Errorf("error copying from client to server: %s", err.Error())
 		}
+
+		if err := clientConn.Close(); err != nil {
+			globals.Application.Logger.Errorf("client connection close error: %s", err)
+		}
+		clientConnClosed <- struct{}{}
 	}()
 
-	// Wait for both goroutines to finish
-	wg.Wait()
+	// wait for one half of the proxy to exit, then trigger a shutdown of the
+	// other half by calling CloseRead(). This will break the read loop in the
+	// broker and allow us to fully close the connection cleanly without a
+	// "use of closed network connection" error.
+	var waitFor chan struct{}
+
+	select {
+
+	case <-clientConnClosed:
+		// The client (browser, curl, whatever) closed first and the packets from the backend
+		// are not useful anymore, so close the connection with the backend using SetLinger(0) to
+		// recycle the port faster
+		serverConn.(*net.TCPConn).SetLinger(0)
+		serverConn.(*net.TCPConn).CloseRead()
+		waitFor = serverConnClosed
+
+	case <-serverConnClosed:
+		// Backend server closed first. This means backend could be down unexpectedly,
+		// so close the connection to let the user try again
+		clientConn.(*net.TCPConn).CloseRead()
+		waitFor = clientConnClosed
+	}
+
+	// Wait for the other connection to close.
+	// This "waitFor" pattern isn't required, but gives us a way to track the
+	// connection and ensure all copies terminate correctly; we can trigger
+	// stats on entry and deferred exit of this function.
+	<-waitFor
 
 	// Read bufferResponse as an HTTP response
 	// At this point bufferResponse contains only the headers of the response
 	bufferResponseReader := bufio.NewReader(&bufferResponse)
 	httpResponse, err := http.ReadResponse(bufferResponseReader, httpRequestHeaders)
 	if err != nil {
-		fmt.Printf("error reading HTTP request: %s\n", err.Error())
+		globals.Application.Logger.Errorf("error reading HTTP request: %s\n", err.Error())
 		return
 	}
 
@@ -280,6 +335,15 @@ func (p *Proxy) RunHttp() (err error) {
 			globals.Application.Logger.Infof("error accepting connection: %v", err)
 			continue
 		}
-		go p.handleConnection(clientConn.(*net.TCPConn))
+
+		//
+		tcpConn, connOk := clientConn.(*net.TCPConn)
+		if !connOk {
+			globals.Application.Logger.Errorf("unexpected connection type: %T", clientConn)
+			clientConn.Close()
+			continue
+		}
+
+		go p.handleConnection(tcpConn)
 	}
 }
