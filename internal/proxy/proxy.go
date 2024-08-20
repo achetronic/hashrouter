@@ -96,8 +96,14 @@ func (p *Proxy) Run(waitGroup *sync.WaitGroup) {
 					}
 
 					// Update serverPool
-					serverPool = tmpDiscoveredIps
-					globals.Application.Logger.Infof("hashring updated: %v", serverPool)
+					slices.Sort(serverPool)
+					slices.Sort(tmpDiscoveredIps)
+
+					if !slices.Equal(serverPool, tmpDiscoveredIps) {
+						serverPool = tmpDiscoveredIps
+						globals.Application.Logger.Infof("hashring updated: %v", serverPool)
+					}
+
 					time.Sleep(syncDuration)
 				}
 			}()

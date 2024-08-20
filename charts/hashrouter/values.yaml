@@ -55,10 +55,12 @@ agent:
   extraVolumes: []
   extraVolumeMounts: []
 
+  #
+  annotations: {}
   podAnnotations: {}
 
+  #
   podSecurityContext: {}
-
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
