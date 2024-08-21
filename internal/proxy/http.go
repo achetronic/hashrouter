@@ -183,6 +183,10 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 func (p *Proxy) handleConnection(clientConn net.Conn) {
 	var err error
 
+	// Closing client connection in the end only for premature errored responses
+	// The connection closing is cleanly managed in the transfer goroutines
+	defer clientConn.Close()
+
 	// Set the connection reader buffer size
 	httpRequestHeadersMaxSizeBytes := defaultHttpRequestHeadersMaxSizeBytes
 	if p.Config.Options.HttpRequestMaxHeadersSizeBytes > 0 {
