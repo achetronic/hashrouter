@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"fmt"
 	"hashrouter/internal/globals"
 	"net"
 	"net/http"
@@ -29,9 +30,9 @@ func BuildLogFields(req *http.Request, res *http.Response, configurationFields [
 
 	for _, field := range configurationFields {
 
-		result := ReplaceRequestTagsString(req, field)
+		result, _ := ReplaceRequestTagsString(req, field)
 
-		result = ReplaceHeaderTagsString(req, res, result)
+		result, _ = ReplaceHeaderTagsString(req, res, result)
 
 		// Ignore not expanded fields
 		if result == field {
@@ -50,10 +51,12 @@ func BuildLogFields(req *http.Request, res *http.Response, configurationFields [
 	return logFields
 }
 
-// ReplaceRequestTagsString TODO
-func ReplaceRequestTagsString(req *http.Request, textToProcess string) (result string) {
+// ReplaceRequestTagsString replaces the HTTP request tags in the given text
+// Tags are expressed as ${REQUEST:<part>}, where <part> can be one of the following:
+// scheme, host, port, path, query, method, proto
+func ReplaceRequestTagsString(req *http.Request, textToProcess string) (result string, err error) {
 
-	// Replace request parts in the format ${REQUEST:part}
+	// Replace request parts in the format ${REQUEST:<part>}
 	requestTags := map[string]string{
 		"scheme": req.URL.Scheme,
 		"host":   req.Host,
@@ -64,22 +67,38 @@ func ReplaceRequestTagsString(req *http.Request, textToProcess string) (result s
 		"proto":  req.Proto,
 	}
 
+	unknownReplacements := make([]string, 0)
+
 	result = RequestPartsPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
+
 		variable := RequestPartsPatternCompiled.FindStringSubmatch(match)[1]
 
 		if replacement, exists := requestTags[variable]; exists {
 			return replacement
 		}
+
+		// As ReplaceAllStringFunc does not support returning an error,
+		// we need to store it for later checks
+		unknownReplacements = append(unknownReplacements, match)
 		return match
 	})
 
-	return result
+	if len(unknownReplacements) > 0 {
+		strings.Join(unknownReplacements, ", ")
+		err = fmt.Errorf("errors while replacing HTTP request parts '%s' in pattern", strings.Join(unknownReplacements, ", "))
+	}
+
+	return result, err
 }
 
-// ReplaceHeaderTagsString TODO
-func ReplaceHeaderTagsString(req *http.Request, res *http.Response, textToProcess string) (result string) {
+// ReplaceHeaderTagsString replaces the HTTP request and response headers in the given text
+// Tags are expressed as ${REQUEST_HEADER:<header-name>} and ${RESPONSE_HEADER:<header-name>}
+// where <header-name> is the name of the header to replace
+func ReplaceHeaderTagsString(req *http.Request, res *http.Response, textToProcess string) (result string, err error) {
 
-	// Replace headers in the format ${REQHEADER:header-name}
+	unknownReplacements := make([]string, 0)
+
+	// Replace headers in the format ${REQUEST_HEADER:<header-name>}
 	result = RequestHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := RequestHeadersPatternCompiled.FindStringSubmatch(match)[1]
@@ -89,10 +108,13 @@ func ReplaceHeaderTagsString(req *http.Request, res *http.Response, textToProces
 			return headerValue
 		}
 
+		// As ReplaceAllStringFunc does not support returning an error,
+		// we need to store it for later checks
+		unknownReplacements = append(unknownReplacements, match)
 		return match
 	})
 
-	// Replace headers in the format ${RESHEADER:header-name}
+	// Replace headers in the format ${RESPONSE_HEADER:<header-name>}
 	result = ResponseHeadersPatternCompiled.ReplaceAllStringFunc(result, func(match string) string {
 
 		variable := ResponseHeadersPatternCompiled.FindStringSubmatch(match)[1]
@@ -102,13 +124,20 @@ func ReplaceHeaderTagsString(req *http.Request, res *http.Response, textToProces
 			return headerValue
 		}
 
+		// As ReplaceAllStringFunc does not support returning an error,
+		// we need to store it for later checks
+		unknownReplacements = append(unknownReplacements, match)
 		return match
 	})
 
-	return result
+	if len(unknownReplacements) > 0 {
+		strings.Join(unknownReplacements, ", ")
+		err = fmt.Errorf("errors while replacing HTTP headers '%s' in pattern", strings.Join(unknownReplacements, ", "))
+	}
+	return result, err
 }
 
-// IsIPv6 TODO
+// IsIPv6 checks if the given IP address is an IPv6 address
 func IsIPv6(ip string) bool {
 	parsedIP := net.ParseIP(ip)
 	return parsedIP != nil && parsedIP.To16() != nil && parsedIP.To4() == nil

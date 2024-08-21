@@ -13,20 +13,16 @@ import (
 )
 
 const (
-	descriptionShort = `Execute synchronization process`
+	descriptionShort = `Execute router process`
 
 	descriptionLong = `
-	Run execute synchronization process`
+	Run execute router process`
 
 	//
-
-	//
-	ConfigFlagErrorMessage          = "impossible to get flag --config: %s"
-	ConfigNotParsedErrorMessage     = "impossible to parse config file: %s"
-	LogLevelFlagErrorMessage        = "impossible to get flag --log-level: %s"
-	DisableTraceFlagErrorMessage    = "impossible to get flag --disable-trace: %s"
-	DryRunFlagErrorMessage          = "impossible to get flag --dry-run: %s"
-	UnableParseDurationErrorMessage = "unable to parse duration: %s"
+	ConfigFlagErrorMessage       = "impossible to get flag --config: %s"
+	ConfigNotParsedErrorMessage  = "impossible to parse config file: %s"
+	LogLevelFlagErrorMessage     = "impossible to get flag --log-level: %s"
+	DisableTraceFlagErrorMessage = "impossible to get flag --disable-trace: %s"
 )
 
 func NewCommand() *cobra.Command {

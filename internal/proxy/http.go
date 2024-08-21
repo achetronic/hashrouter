@@ -81,69 +81,77 @@ func sendErrorResponse(conn net.Conn, statusCode int, message string) error {
 	return nil
 }
 
-// peekHeadersOnly get a connection reader and reads only the headers of an HTTP request
-// without consuming the reader buffer
-func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*http.Request, []byte, error) {
+// accumulateHeaders reads the headers of an HTTP request from a connection reader.
+// It uses peek to avoid consuming the reader buffer
+func accumulateHeaders(connectionReader *bufio.Reader, maxHeadersSizeBytes int) ([]byte, error) {
 	var peekBuffer []byte
 
 	for {
 		peeked, err := connectionReader.Peek(len(peekBuffer) + 1)
 		if err != nil && err != bufio.ErrBufferFull {
-			return nil, peekBuffer, err
+
+			// EOF is expected when the connection is closed
+			if err == io.EOF {
+				err = fmt.Errorf("unexpected EOF found while reading headers. Connection closed")
+			}
+
+			return peekBuffer, err
 		}
 		peekBuffer = append(peekBuffer, peeked[len(peekBuffer):]...)
 
-		// Check if we have read all headers
+		// Verifica si hemos leído todos los encabezados
 		if bytes.Contains(peekBuffer, []byte("\r\n\r\n")) {
 			break
 		}
 
-		// Limit the buffer size to avoid consuming too much memory
+		// Limita el tamaño del buffer para evitar consumir demasiada memoria
 		if len(peekBuffer) > maxHeadersSizeBytes {
-			return nil, peekBuffer, fmt.Errorf("headers too large")
+			return peekBuffer, fmt.Errorf("headers too large")
 		}
 	}
 
-	// Create a new reader for the peeked data
+	return peekBuffer, nil
+}
+
+// parseRequestFromHeaders parses an HTTP request from the headers read from a connection
+func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 	peekedReader := bufio.NewReader(bytes.NewReader(peekBuffer))
 
-	// Read the first line of the request
-	// It will be parsed later to obtain request data
+	// Leer la primera línea de la solicitud (request line)
 	requestLine, err := peekedReader.ReadString('\n')
 	if err != nil {
-		return nil, peekBuffer, err
+		return nil, err
 	}
 
-	// Read the headers of the request
+	// Leer los encabezados de la solicitud
 	requestHeaders := make(http.Header)
 	for {
 		line, err := peekedReader.ReadString('\n')
 		if err != nil {
-			return nil, peekBuffer, err
+			return nil, err
 		}
 
-		// Remember headers are separated from the body by a double CRLF
-		// so when found, we stop reading headers
+		// Los encabezados están separados del cuerpo por un doble CRLF
 		if line == "\r\n" {
 			break
 		}
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
-			return nil, peekBuffer, fmt.Errorf("malformed header line: %s", line)
+			return nil, fmt.Errorf("malformed header line: %s", line)
 		}
 		requestHeaders.Add(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 	}
 
-	// Parse the request line to get the method, URL and protocol version
+	// Parsear la línea de solicitud para obtener el método, URL y la versión del protocolo
 	requestLineParts := strings.Split(requestLine, " ")
 	if len(requestLineParts) != 3 {
-		return nil, peekBuffer, fmt.Errorf("malformed request line: %s", requestLine)
+		return nil, fmt.Errorf("malformed request line: %s", requestLine)
 	}
 	requestMethod := requestLineParts[0]
 	requestUrl := requestLineParts[1]
 	requestProto := strings.TrimSpace(requestLineParts[2])
 
-	// Create an HTTP request using the read headers
+	// Crear una solicitud HTTP usando los encabezados leídos
 	req := &http.Request{
 		Method:     requestMethod,
 		URL:        &url.URL{Path: requestUrl},
@@ -152,6 +160,22 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 		Host:       requestHeaders.Get("Host"),
 		RequestURI: requestUrl,
 	}
+	return req, nil
+}
+
+// peekHeadersOnly get a connection reader and reads only the headers of an HTTP request
+// without consuming the reader buffer
+func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*http.Request, []byte, error) {
+	peekBuffer, err := accumulateHeaders(connectionReader, maxHeadersSizeBytes)
+	if err != nil {
+		return nil, peekBuffer, err
+	}
+
+	req, err := parseRequestFromHeaders(peekBuffer)
+	if err != nil {
+		return nil, peekBuffer, err
+	}
+
 	return req, peekBuffer, nil
 }
 
@@ -159,18 +183,19 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 func (p *Proxy) handleConnection(clientConn net.Conn) {
 	var err error
 
-	// Create an HTTP data reader from the client.
-	// Created here as headers are needed to determine the backend server
-	// Remember once a reader is linked to a connection, and has consumed bytes from it,
-	// those bytes are not available for io.Copy or other readers
-	clientConnectionReader := bufio.NewReader(clientConn)
-
-	// Peek the headers of the HTTP request
+	// Set the connection reader buffer size
 	httpRequestHeadersMaxSizeBytes := defaultHttpRequestHeadersMaxSizeBytes
 	if p.Config.Options.HttpRequestMaxHeadersSizeBytes > 0 {
 		httpRequestHeadersMaxSizeBytes = p.Config.Options.HttpRequestMaxHeadersSizeBytes
 	}
 
+	// Create an HTTP data reader from the client.
+	// Created here as headers are needed to determine the backend server
+	// Remember once a reader is linked to a connection, and has consumed bytes from it,
+	// those bytes are not available for io.Copy or other readers
+	clientConnectionReader := bufio.NewReaderSize(clientConn, httpRequestHeadersMaxSizeBytes)
+
+	// Peek the headers of the HTTP request
 	httpRequestHeaders, httpRequestHeadersBuffer, err := peekHeadersOnly(clientConnectionReader, httpRequestHeadersMaxSizeBytes)
 	if err != nil {
 		globals.Application.Logger.Errorf("error reading HTTP request headers: %v", err.Error())
@@ -178,12 +203,22 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 		if err != nil {
 			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
 		}
-
 		return
 	}
 
-	// Connect hashring-assigned backend server
-	hashKey := ReplaceRequestTagsString(httpRequestHeaders, p.Config.HashKey.Pattern)
+	// Figure out the backend server to connect to, according to the users' configured 'hask_key.pattern'
+	// When the pattern can not be parsed the connection is not established as it's impossible to determine the backend
+	// in a consistent way
+	hashKey, err := ReplaceRequestTagsString(httpRequestHeaders, p.Config.HashKey.Pattern)
+	if err != nil {
+		globals.Application.Logger.Errorf("error calculating hash_key: %v", err.Error())
+		err = sendErrorResponse(clientConn, http.StatusInternalServerError, "Internal Server Error")
+		if err != nil {
+			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
+		}
+		return
+	}
+
 	dueBackend := p.Hashring.GetServer(hashKey)
 
 	// Backend connection is always performed to the hashring-assigned backend server.
