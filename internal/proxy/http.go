@@ -99,12 +99,12 @@ func accumulateHeaders(connectionReader *bufio.Reader, maxHeadersSizeBytes int) 
 		}
 		peekBuffer = append(peekBuffer, peeked[len(peekBuffer):]...)
 
-		// Verifica si hemos leído todos los encabezados
+		// Check if we have read all headers
 		if bytes.Contains(peekBuffer, []byte("\r\n\r\n")) {
 			break
 		}
 
-		// Limita el tamaño del buffer para evitar consumir demasiada memoria
+		// Limit the buffer size to avoid consuming too much memory
 		if len(peekBuffer) > maxHeadersSizeBytes {
 			return peekBuffer, fmt.Errorf("headers too large")
 		}
@@ -117,13 +117,13 @@ func accumulateHeaders(connectionReader *bufio.Reader, maxHeadersSizeBytes int) 
 func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 	peekedReader := bufio.NewReader(bytes.NewReader(peekBuffer))
 
-	// Leer la primera línea de la solicitud (request line)
+	// Read the first line of the request (request line)
 	requestLine, err := peekedReader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
 
-	// Leer los encabezados de la solicitud
+	// Read the headers of the request
 	requestHeaders := make(http.Header)
 	for {
 		line, err := peekedReader.ReadString('\n')
@@ -131,7 +131,7 @@ func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 			return nil, err
 		}
 
-		// Los encabezados están separados del cuerpo por un doble CRLF
+		// Headers are separated from the body by a double CRLF
 		if line == "\r\n" {
 			break
 		}
@@ -142,7 +142,7 @@ func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 		requestHeaders.Add(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 	}
 
-	// Parsear la línea de solicitud para obtener el método, URL y la versión del protocolo
+	//
 	requestLineParts := strings.Split(requestLine, " ")
 	if len(requestLineParts) != 3 {
 		return nil, fmt.Errorf("malformed request line: %s", requestLine)
@@ -151,7 +151,7 @@ func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 	requestUrl := requestLineParts[1]
 	requestProto := strings.TrimSpace(requestLineParts[2])
 
-	// Crear una solicitud HTTP usando los encabezados leídos
+	//
 	req := &http.Request{
 		Method:     requestMethod,
 		URL:        &url.URL{Path: requestUrl},

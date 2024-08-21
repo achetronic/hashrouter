@@ -53,8 +53,9 @@ func (p *Proxy) Run(waitGroup *sync.WaitGroup) {
 			}
 		}
 
+		// Launch a goroutine that synchronizes the hashring from time to time
+		// when the DNS backend is used
 		if !reflect.ValueOf(p.Config.Backends.Dns).IsZero() {
-			// Arrancar una goroutine que sincronice el hashring de cuando en cuando
 			go func() {
 
 				syncDuration, err := time.ParseDuration(p.Config.Backends.Dns.Synchronization)
