@@ -56,13 +56,21 @@ func BuildLogFields(req *http.Request, res *http.Response, configurationFields [
 // scheme, host, port, path, query, method, proto
 func ReplaceRequestTagsString(req *http.Request, textToProcess string) (result string, err error) {
 
+	reqPathParts := strings.Split(req.URL.Path, "?")
+
+	//
+	reqQuery := ""
+	if len(reqPathParts) > 1 {
+		reqQuery = reqPathParts[1]
+	}
+
 	// Replace request parts in the format ${REQUEST:<part>}
 	requestTags := map[string]string{
 		"scheme": req.URL.Scheme,
 		"host":   req.Host,
 		"port":   req.URL.Port(),
-		"path":   req.URL.Path,
-		"query":  req.URL.Query().Encode(),
+		"path":   reqPathParts[0],
+		"query":  reqQuery,
 		"method": req.Method,
 		"proto":  req.Proto,
 	}
