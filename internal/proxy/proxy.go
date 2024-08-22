@@ -63,7 +63,7 @@ func (p *Proxy) Run(waitGroup *sync.WaitGroup) {
 					globals.Application.Logger.Fatalf("error parsing synchronization duration: %s", err.Error())
 				}
 
-				serverPool := []string{}
+				hostPool := []string{}
 				for {
 
 					globals.Application.Logger.Infof("syncing hashring with DNS")
@@ -73,36 +73,39 @@ func (p *Proxy) Run(waitGroup *sync.WaitGroup) {
 						globals.Application.Logger.Errorf("error looking up %s: %s", p.Config.Backends.Dns.Domain, err.Error())
 					}
 
-					// Add recently discovered servers to the hashring
-					tmpDiscoveredIps := []string{}
+					// Add recently discovered hosts to the hashring
+					tmpHostPool := []string{}
 					for _, discoveredIp := range discoveredIps {
+
+						hostAddress := discoveredIp.String() + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
+						if IsIPv6(discoveredIp.String()) {
+							hostAddress = "[" + hostAddress + "]" + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
+						}
+
 						// Craft a human readable string list of discovered IPs
-						tmpDiscoveredIps = append(tmpDiscoveredIps, discoveredIp.String())
+						tmpHostPool = append(tmpHostPool, hostAddress)
 
 						//
-						server := discoveredIp.String() + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
-						if IsIPv6(discoveredIp.String()) {
-							server = "[" + server + "]" + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
-						}
-						if !slices.Contains(serverPool, server) {
-							p.Hashring.AddServer(server)
+						if !slices.Contains(hostPool, hostAddress) {
+							p.Hashring.AddServer(hostAddress)
 						}
 					}
 
-					// Delete dead servers from hashring
-					for _, server := range serverPool {
-						if !slices.Contains(tmpDiscoveredIps, server) {
-							p.Hashring.RemoveServer(server)
+					// Delete dead hosts from hashring
+					for _, hostPoolItem := range hostPool {
+
+						if !slices.Contains(tmpHostPool, hostPoolItem) {
+							p.Hashring.RemoveServer(hostPoolItem)
 						}
 					}
 
-					// Update serverPool
-					slices.Sort(serverPool)
-					slices.Sort(tmpDiscoveredIps)
+					// Update hostPool
+					slices.Sort(hostPool)
+					slices.Sort(tmpHostPool)
 
-					if !slices.Equal(serverPool, tmpDiscoveredIps) {
-						serverPool = tmpDiscoveredIps
-						globals.Application.Logger.Infof("hashring updated: %v", serverPool)
+					if !slices.Equal(hostPool, tmpHostPool) {
+						hostPool = tmpHostPool
+						globals.Application.Logger.Infof("hashring updated: %v", hostPool)
 					}
 
 					time.Sleep(syncDuration)
