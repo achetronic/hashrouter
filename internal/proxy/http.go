@@ -257,7 +257,7 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 		}
 	}
 
-	if err != nil {
+	if len(hashringServerPool) == 0 || err != nil {
 		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", err.Error())
 		err = sendErrorResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
 		if err != nil {
