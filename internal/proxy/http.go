@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"hashrouter/internal/globals"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"k8s.io/utils/strings/slices"
 )
@@ -52,8 +54,8 @@ func (w *headerCaptureWriter) Write(p []byte) (n int, err error) {
 	return w.Writer.Write(p)
 }
 
-// sendErrorResponse send a static error response to the client
-func sendErrorResponse(conn net.Conn, statusCode int, message string) error {
+// sendDirectResponse send a static error response to the client
+func sendDirectResponse(conn net.Conn, statusCode int, message string) error {
 	// Create the HTTP response header
 	response := fmt.Sprintf(
 		"HTTP/1.1 %d %s\r\n"+
@@ -113,8 +115,8 @@ func accumulateHeaders(connectionReader *bufio.Reader, maxHeadersSizeBytes int) 
 	return peekBuffer, nil
 }
 
-// parseRequestFromHeaders parses an HTTP request from the headers read from a connection
-func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
+// createRequestFromHeaders parses an HTTP request from the headers read from a connection
+func createRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 	peekedReader := bufio.NewReader(bytes.NewReader(peekBuffer))
 
 	// Read the first line of the request (request line)
@@ -163,15 +165,15 @@ func parseRequestFromHeaders(peekBuffer []byte) (*http.Request, error) {
 	return req, nil
 }
 
-// peekHeadersOnly get a connection reader and reads only the headers of an HTTP request
+// peekRequestHeaders reads the headers of an HTTP request from a connection
 // without consuming the reader buffer
-func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*http.Request, []byte, error) {
+func peekRequestHeaders(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*http.Request, []byte, error) {
 	peekBuffer, err := accumulateHeaders(connectionReader, maxHeadersSizeBytes)
 	if err != nil {
 		return nil, peekBuffer, err
 	}
 
-	req, err := parseRequestFromHeaders(peekBuffer)
+	req, err := createRequestFromHeaders(peekBuffer)
 	if err != nil {
 		return nil, peekBuffer, err
 	}
@@ -179,13 +181,20 @@ func peekHeadersOnly(connectionReader *bufio.Reader, maxHeadersSizeBytes int) (*
 	return req, peekBuffer, nil
 }
 
+// generateRandToken generates a random token to be used as a request ID
+func generateRandToken() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
+
 // handleConnection handles an incoming client connection
 func (p *Proxy) handleConnection(clientConn net.Conn) {
 	var err error
+	connectionExtraData := ConnectionExtraData{}
 
-	// Closing client connection in the end only for premature errored responses
-	// The connection closing is cleanly managed in the transfer goroutines
-	defer clientConn.Close()
+	requestId := generateRandToken()
+	connectionExtraData.RequestId = requestId
 
 	// Set the connection reader buffer size
 	httpRequestHeadersMaxSizeBytes := defaultHttpRequestHeadersMaxSizeBytes
@@ -200,10 +209,10 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 	clientConnectionReader := bufio.NewReaderSize(clientConn, httpRequestHeadersMaxSizeBytes)
 
 	// Peek the headers of the HTTP request
-	httpRequestHeaders, httpRequestHeadersBuffer, err := peekHeadersOnly(clientConnectionReader, httpRequestHeadersMaxSizeBytes)
+	httpRequest, httpRequestHeadersBuffer, err := peekRequestHeaders(clientConnectionReader, httpRequestHeadersMaxSizeBytes)
 	if err != nil {
 		globals.Application.Logger.Errorf("error reading HTTP request headers: %v", err.Error())
-		err = sendErrorResponse(clientConn, http.StatusBadRequest, "Bad Request")
+		err = sendDirectResponse(clientConn, http.StatusBadRequest, "Bad Request")
 		if err != nil {
 			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
 		}
@@ -213,21 +222,22 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 	// Figure out the backend server to connect to, according to the users' configured 'hask_key.pattern'
 	// When the pattern can not be parsed the connection is not established as it's impossible to determine the backend
 	// in a consistent way
-	hashKey, err := ReplaceRequestTagsString(httpRequestHeaders, p.Config.HashKey.Pattern)
+	hashKey, err := ReplaceRequestTags(httpRequest, p.Config.HashKey.Pattern)
 	if err != nil {
 		globals.Application.Logger.Errorf("error calculating hash_key: %v", err.Error())
-		err = sendErrorResponse(clientConn, http.StatusInternalServerError, "Internal Server Error")
+		err = sendDirectResponse(clientConn, http.StatusInternalServerError, "Internal Server Error")
 		if err != nil {
 			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
 		}
 		return
 	}
-
-	dueBackend := p.Hashring.GetServer(hashKey)
+	hashKey = strings.TrimSpace(hashKey)
+	connectionExtraData.Hashkey = hashKey
 
 	// Backend connection is always performed to the hashring-assigned backend server.
 	// When the user enabled 'options.try_another_backend_on_failure', the proxy will try to connect
 	// to the next server in the hashring until a connection is established or all servers are tried.
+	dueBackend := p.Hashring.GetServer(hashKey)
 	hashringServerPool := p.Hashring.GetServerList()
 	dueBackendPoolIndex := slices.Index(hashringServerPool, dueBackend)
 
@@ -241,8 +251,10 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 			indexToTry = indexToTry - len(hashringServerPool)
 		}
 
+		connectionExtraData.Backend = hashringServerPool[indexToTry]
+
 		// Establish connection to the server
-		serverConn, err = net.Dial("tcp", hashringServerPool[indexToTry])
+		serverConn, err = net.DialTimeout("tcp", hashringServerPool[indexToTry], 2*time.Second)
 		if err == nil {
 			break
 		}
@@ -259,28 +271,37 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 
 	if len(hashringServerPool) == 0 || err != nil {
 		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", err.Error())
-		err = sendErrorResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
+		connectionExtraData.Backend = "none"
+
+		err = sendDirectResponse(clientConn, http.StatusServiceUnavailable, "Service Unavailable")
 		if err != nil {
 			globals.Application.Logger.Errorf("error sending direct response to client: %v", err.Error())
 		}
 		return
 	}
 
+	// Throw request log as early as possible
+	if globals.Application.Config.Logs.ShowAccessLogs {
+		logFields := GetRequestLogFields(httpRequest, connectionExtraData, globals.Application.Config.Logs.AccessLogsFields)
+		globals.Application.Logger.Infow("request", logFields...)
+	}
+
 	/////////////////////////////////////////////////////////
 
-	clientConnClosed := make(chan struct{}, 1)
-	serverConnClosed := make(chan struct{}, 1)
+	clientConnClosed := make(chan struct{})
+	serverConnClosed := make(chan struct{})
 
 	// Read the server response and forward it to the client
 	// This routine is launched before, to keep the returning communication channel open
 	var bufferResponse bytes.Buffer
 	go func() {
+		// Notify when the server connection is closed
+		defer close(serverConnClosed)
 
 		// Capture the headers of the response while it's transmitted
 		headerWriter := &headerCaptureWriter{Writer: &bufferResponse}
 		multiWriter := io.MultiWriter(clientConn, headerWriter)
 
-		//
 		_, err = io.Copy(multiWriter, serverConn)
 		if err != nil {
 			globals.Application.Logger.Errorf("error copying from server to client: %v", err)
@@ -289,18 +310,20 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 		if err := serverConn.Close(); err != nil {
 			globals.Application.Logger.Errorf("server connection close error: %s", err)
 		}
-		serverConnClosed <- struct{}{}
 	}()
 
 	// Read the client request and forward it to the server
 	go func() {
+
+		// Notify when the client connection is closed
+		defer close(clientConnClosed)
+
 		// As headers are already read, we need to craft a new composed reader
 		// to join the headers and the rest of the request
 		requestHeadersReader := bytes.NewReader(httpRequestHeadersBuffer)
 		composedReader := io.MultiReader(requestHeadersReader, clientConn)
 
-		//
-		_, err = io.Copy(serverConn, composedReader)
+		_, err := io.Copy(serverConn, composedReader)
 		if err != nil {
 			globals.Application.Logger.Errorf("error copying from client to server: %s", err.Error())
 		}
@@ -308,51 +331,40 @@ func (p *Proxy) handleConnection(clientConn net.Conn) {
 		if err := clientConn.Close(); err != nil {
 			globals.Application.Logger.Errorf("client connection close error: %s", err)
 		}
-		clientConnClosed <- struct{}{}
 	}()
 
 	// wait for one half of the proxy to exit, then trigger a shutdown of the
 	// other half by calling CloseRead(). This will break the read loop in the
 	// broker and allow us to fully close the connection cleanly without a
 	// "use of closed network connection" error.
-	var waitFor chan struct{}
-
 	select {
 
+	// The client (browser, curl, whatever) closed first and the packets from the backend
+	// are not useful anymore, so close the connection with the backend using SetLinger(0) to
+	// recycle the port faster
 	case <-clientConnClosed:
-		// The client (browser, curl, whatever) closed first and the packets from the backend
-		// are not useful anymore, so close the connection with the backend using SetLinger(0) to
-		// recycle the port faster
-		serverConn.(*net.TCPConn).SetLinger(0)
 		serverConn.(*net.TCPConn).CloseRead()
-		waitFor = serverConnClosed
+		serverConn.(*net.TCPConn).SetLinger(0)
 
+	// Backend server closed first. This means backend could be down unexpectedly,
+	// so close the connection to let the user try again
 	case <-serverConnClosed:
-		// Backend server closed first. This means backend could be down unexpectedly,
-		// so close the connection to let the user try again
 		clientConn.(*net.TCPConn).CloseRead()
-		waitFor = clientConnClosed
 	}
-
-	// Wait for the other connection to close.
-	// This "waitFor" pattern isn't required, but gives us a way to track the
-	// connection and ensure all copies terminate correctly; we can trigger
-	// stats on entry and deferred exit of this function.
-	<-waitFor
 
 	// Read bufferResponse as an HTTP response
 	// At this point bufferResponse contains only the headers of the response
 	bufferResponseReader := bufio.NewReader(&bufferResponse)
-	httpResponse, err := http.ReadResponse(bufferResponseReader, httpRequestHeaders)
+	httpResponse, err := http.ReadResponse(bufferResponseReader, httpRequest)
 	if err != nil {
-		globals.Application.Logger.Errorf("error reading HTTP request: %s\n", err.Error())
+		globals.Application.Logger.Errorf("error reading HTTP response: %s\n", err.Error())
 		return
 	}
 
-	// TODO: Refine this log a bit
+	//
 	if globals.Application.Config.Logs.ShowAccessLogs {
-		logFields := BuildLogFields(httpRequestHeaders, httpResponse, globals.Application.Config.Logs.AccessLogsFields)
-		globals.Application.Logger.Infow("received request", logFields...)
+		logFields := GetResponseLogFields(httpResponse, connectionExtraData, globals.Application.Config.Logs.AccessLogsFields)
+		globals.Application.Logger.Infow("response", logFields...)
 	}
 }
 
@@ -375,14 +387,13 @@ func (p *Proxy) RunHttp() (err error) {
 			continue
 		}
 
-		//
-		tcpConn, connOk := clientConn.(*net.TCPConn)
+		_, connOk := clientConn.(*net.TCPConn)
 		if !connOk {
 			globals.Application.Logger.Errorf("unexpected connection type: %T", clientConn)
 			clientConn.Close()
 			continue
 		}
 
-		go p.handleConnection(tcpConn)
+		go p.handleConnection(clientConn)
 	}
 }
