@@ -48,8 +48,9 @@ type OptionsT struct {
 	TlsCertificate string `yaml:"tls_certificate,omitempty"`
 	TlsKey         string `yaml:"tls_key,omitempty"`
 
-	HttpRequestMaxHeadersSizeBytes int  `yaml:"http_request_max_headers_size_bytes,omitempty"`
-	TryAnotherBackendOnFailure     bool `yaml:"try_another_backend_on_failure,omitempty"`
+	//
+	BackendConnectTimeoutMilliseconds int  `yaml:"backend_connect_timeout_ms,omitempty"`
+	TryAnotherBackendOnFailure        bool `yaml:"try_another_backend_on_failure,omitempty"`
 }
 
 // LogsT TODO

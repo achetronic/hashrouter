@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	// defaultHttpRequestHeadersMaxSizeBytes is the default maximum size of HTTP request headers
-	defaultHttpRequestHeadersMaxSizeBytes = 4096
+	// defaultBackendConnectTimeoutMilliseconds is the default timeout for connecting to a backend
+	defaultBackendConnectTimeoutMilliseconds = 40
 )
 
 // writeDirectResponse writes a static response.
@@ -74,8 +74,14 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		req.Header = r.Header
-		http.DefaultClient.Timeout = 30 * time.Millisecond // TODO: Delegate this time
 
+		//
+		http.DefaultClient.Timeout = defaultBackendConnectTimeoutMilliseconds * time.Millisecond
+		if p.Config.Options.BackendConnectTimeoutMilliseconds > 0 {
+			http.DefaultClient.Timeout = time.Duration(p.Config.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
+		}
+
+		//
 		resp, err = http.DefaultClient.Do(req)
 		if err == nil {
 			connectionExtraData.Backend = hashringServerPool[indexToTry]
