@@ -37,21 +37,13 @@ type ConnectionExtraData struct {
 // scheme, host, port, path, query, method, proto
 func ReplaceRequestTags(req *http.Request, textToProcess string) (result string, err error) {
 
-	reqPathParts := strings.Split(req.URL.Path, "?")
-
-	//
-	reqQuery := ""
-	if len(reqPathParts) > 1 {
-		reqQuery = reqPathParts[1]
-	}
-
 	// Replace request parts in the format ${REQUEST:<part>}
 	requestTags := map[string]string{
 		"scheme": req.URL.Scheme,
 		"host":   req.Host,
 		"port":   req.URL.Port(),
-		"path":   reqPathParts[0],
-		"query":  reqQuery,
+		"path":   req.URL.Path,
+		"query":  req.URL.RawQuery,
 		"method": req.Method,
 		"proto":  req.Proto,
 	}

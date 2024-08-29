@@ -59,10 +59,6 @@ proxies:
       # certificate: /etc/ssl/certs/achetronic.pem
       # key: /etc/ssl/private/achetronic.key
 
-      # (optional) The maximum size y bytes of headers in a request
-      # By default, the value is 4KB
-      http_request_max_headers_size_bytes: 65536 # 64KB
-
       # (optional) Hashring always assigns the same backend to the hashkey.
       # If the backend is down, you can try another backend until exaushting all of them
       # by enabling this option
