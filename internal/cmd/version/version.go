@@ -27,5 +27,5 @@ func NewCommand() *cobra.Command {
 }
 
 func RunCommand(cmd *cobra.Command, args []string) {
-	fmt.Print("version: 0.7.0\n")
+	fmt.Print("version: 0.8.0\n")
 }
