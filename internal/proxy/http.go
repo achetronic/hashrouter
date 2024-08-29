@@ -76,13 +76,17 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		req.Header = r.Header
 
 		//
-		http.DefaultClient.Timeout = defaultBackendConnectTimeoutMilliseconds * time.Millisecond
+		httpTimeout := defaultBackendConnectTimeoutMilliseconds * time.Millisecond
 		if p.Config.Options.BackendConnectTimeoutMilliseconds > 0 {
-			http.DefaultClient.Timeout = time.Duration(p.Config.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
+			httpTimeout = time.Duration(p.Config.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
+		}
+
+		var backendCient = &http.Client{
+			Timeout: httpTimeout,
 		}
 
 		//
-		resp, err = http.DefaultClient.Do(req)
+		resp, err = backendCient.Do(req)
 		if err == nil {
 			connectionExtraData.Backend = hashringServerPool[indexToTry]
 			break
