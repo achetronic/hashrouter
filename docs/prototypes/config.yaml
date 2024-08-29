@@ -59,6 +59,9 @@ proxies:
       # certificate: /etc/ssl/certs/achetronic.pem
       # key: /etc/ssl/private/achetronic.key
 
+      # (optional) Timeout in milliseconds to close connection to the backend
+      backend_connect_timeout_ms: 40
+
       # (optional) Hashring always assigns the same backend to the hashkey.
       # If the backend is down, you can try another backend until exaushting all of them
       # by enabling this option
