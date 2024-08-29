@@ -1,0 +1,35 @@
+
+{{- if .Values.agent.disruption }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "hashrouter.fullname" . }}
+  labels:
+    {{- include "hashrouter.labels" . | nindent 4 }}
+    {{- with .Values.agent.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+  {{- with .Values.agent.disruption.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+
+spec:
+  {{- with .Values.agent.disruption.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+
+  {{- with .Values.agent.disruption.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+
+  selector:
+    matchLabels:
+      {{- include "hashrouter.selectorLabels" . | nindent 4 }}
+      {{- with .Values.agent.extraLabels }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- end }}

@@ -29,6 +29,21 @@ agent:
 
   imagePullSecrets: []
 
+  # extraInitContainers is a list of init containers. Specified as a YAML list.
+  # This is useful if you need to run a script to provision TLS certificates or
+  # write out configuration files in a dynamic way.
+  extraInitContainers: null
+    # # This example installs a plugin pulled from github into the /usr/local/libexec/vault/oauthapp folder,
+    # # which is defined in the volumes value.
+    # - name: something
+    #   image: "alpine"
+    #   command: [sh, -c]
+    #   args: []
+    #   volumeMounts: []
+
+  # extraContainers is a list of sidecar containers. Specified as a YAML list.
+  extraContainers: null
+
   # Extra args to pass to the agent.
   # Ref: https://github.com/achetronic/hashrouter?tab=readme-ov-file#flags
   # Example:
@@ -91,6 +106,27 @@ agent:
   tolerations: []
 
   affinity: {}
+
+  # Pod Disruption Budget configurations
+  disruption:
+    annotations: {}
+    minAvailable: 2
+    #maxUnavailable: 1
+
+  # Horizontal Pod Autoscaling configurations
+  autoscaling:
+    annotations: {}
+    minReplicas: 1
+    maxReplicas: 5
+
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+
+    ## see https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/#autoscaling-on-multiple-metrics-and-custom-metrics
+    customRules: []
+
+    ## see https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#support-for-configurable-scaling-behavior
+    behavior: {}
 
   # 
   service:

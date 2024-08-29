@@ -1,0 +1,62 @@
+{{- if .Values.agent.autoscaling }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "hashrouter.fullname" . }}
+  labels:
+    {{- include "hashrouter.labels" . | nindent 4 }}
+    {{- with .Values.agent.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+  {{- with .Values.agent.autoscaling.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  
+spec:
+  {{- if .Values.agent.autoscaling.behavior }}
+  behavior:
+    {{- toYaml .Values.agent.autoscaling.behavior | nindent 4 }}
+  {{- end }}
+
+  # Match the generated Deployment by reference
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "hashrouter.fullname" . }}
+
+  {{- with .Values.agent.autoscaling }}
+  minReplicas: {{ .minReplicas }}
+  maxReplicas: {{ .maxReplicas }}
+
+  metrics:
+    # Changing the order of the metrics will cause ArgoCD
+    # to go into a sync loop memory needs to be first.
+    # More info in: https://github.com/argoproj/argo-cd/issues/1079
+    {{- with .targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+
+    {{- with .targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+
+    {{- if .customRules -}}
+      {{- toYaml .customRules | nindent 4}}
+    {{- end }}
+
+  {{- end }}
+
+---
+{{- end }}

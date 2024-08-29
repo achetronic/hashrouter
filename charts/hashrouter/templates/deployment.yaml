@@ -38,6 +38,12 @@ spec:
       serviceAccountName: {{ include "hashrouter.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
+
+      {{- with .Values.agent.extraInitContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
       containers:
         - name: agent
           image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
@@ -85,6 +91,10 @@ spec:
             {{- with .Values.agent.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+
+        {{- with .Values.agent.extraContainers }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
 
       {{- with .Values.agent.nodeSelector }}
       nodeSelector:
