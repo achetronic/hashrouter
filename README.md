@@ -55,6 +55,10 @@ logs:
 
   - ${RESPONSE_HEADER:content-length}
   - ${RESPONSE_HEADER:content-type}
+
+  - ${EXTRA:request-id}
+  - ${EXTRA:hashkey}
+  - ${EXTRA:backend}
   
 
 proxies:
@@ -92,6 +96,7 @@ proxies:
     options:
       protocol: http
 
+      # (not implemented yet)
       # protocol: http2
       # certificate: /etc/ssl/certs/achetronic.pem
       # key: /etc/ssl/private/achetronic.key

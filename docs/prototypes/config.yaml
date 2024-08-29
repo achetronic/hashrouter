@@ -14,6 +14,10 @@ logs:
 
   - ${RESPONSE_HEADER:content-length}
   - ${RESPONSE_HEADER:content-type}
+
+  - ${EXTRA:request-id}
+  - ${EXTRA:hashkey}
+  - ${EXTRA:backend}
   
 
 proxies:
