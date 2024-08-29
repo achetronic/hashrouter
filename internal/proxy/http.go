@@ -21,6 +21,8 @@ const (
 // This is used to send errors to the client
 func writeDirectResponse(w http.ResponseWriter, statusCode int, message string) {
 
+	message = fmt.Sprintf("%d %s\n", statusCode, message)
+
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(message)))
 
@@ -39,6 +41,11 @@ func generateRandToken() string {
 func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
 	var err error
+
+	// The variable 'lastErr' is used to store the last error that occurred while trying to connect to a backend.
+	// You should be wondering why we are using this variable... Well, there is a 'kind of' race condition where
+	// the we could cause a panic in runtime using directly 'err' during the loop you will observe soon.
+	var lastErr error
 
 	connectionExtraData := ConnectionExtraData{}
 
@@ -89,8 +96,10 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		resp, err = backendCient.Do(req)
 		if err == nil {
 			connectionExtraData.Backend = hashringServerPool[indexToTry]
+			lastErr = nil
 			break
 		}
+		lastErr = err
 
 		// TODO: Discuss this message usefulness with more people
 		globals.Application.Logger.Debugf("failed connecting to server '%s': %v", hashringServerPool[indexToTry], err.Error())
@@ -102,8 +111,8 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err != nil {
-		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", err.Error())
+	if lastErr != nil {
+		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", lastErr.Error())
 		connectionExtraData.Backend = "none"
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
