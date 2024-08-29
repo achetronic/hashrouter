@@ -6,6 +6,10 @@ metadata:
   name: {{ include "hashrouter.fullname" . }}
   labels:
     {{- include "hashrouter.labels" . | nindent 4 }}
+    {{- with .Values.agent.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
   {{- with .Values.agent.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

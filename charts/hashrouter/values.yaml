@@ -25,7 +25,7 @@ agent:
     repository: ghcr.io/achetronic/hashrouter
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: ""
+    tag: "v0.5.0"
 
   imagePullSecrets: []
 
@@ -58,6 +58,10 @@ agent:
   #
   annotations: {}
   podAnnotations: {}
+
+  #
+  extraLabels: {}
+  extraPodLabels: {}
 
   #
   podSecurityContext: {}
