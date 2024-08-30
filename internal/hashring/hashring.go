@@ -1,6 +1,7 @@
 package hashring
 
 import (
+	"fmt"
 	"hash/crc32"
 	"slices"
 	"sort"
@@ -100,4 +101,15 @@ func (h *HashRing) GetServerList() (servers []string) {
 	slices.Sort(servers)
 
 	return servers
+}
+
+
+func (h *HashRing) String() string {
+	servers := h.GetServerList()
+	str := "{"
+	for _, v := range servers {
+		str += fmt.Sprintf("[host: '%s']", v)
+	}
+	str += "}"
+	return str
 }

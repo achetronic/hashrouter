@@ -16,26 +16,36 @@ limitations under the License.
 
 package api
 
+import "time"
+
 type ListenerT struct {
 	Port    int    `yaml:"port"`
 	Address string `yaml:"address"`
 }
 
+type HealthCheckT struct {
+	Timeout time.Duration `yaml:"timeout"`
+	Retries int           `yaml:"retries"`
+	Path    string        `yaml:"path"`
+}
+
 type BackendsStaticT struct {
-	Name string `yaml:"name"`
-	Host string `yaml:"host"`
+	Name        string       `yaml:"name"`
+	Host        string       `yaml:"host"`
+	HealthCheck HealthCheckT `yaml:"healthcheck,omitempty"`
 }
 
 type BackendsDnsT struct {
-	Name            string `yaml:"name"`
-	Domain          string `yaml:"domain"`
-	Port            int    `yaml:"port"`
-	Synchronization string `yaml:"synchronization"`
+	Name        string       `yaml:"name"`
+	Domain      string       `yaml:"domain"`
+	Port        int          `yaml:"port"`
+	HealthCheck HealthCheckT `yaml:"healthcheck,omitempty"`
 }
 
 type BackendsT struct {
-	Static []BackendsStaticT `yaml:"static,omitempty"`
-	Dns    BackendsDnsT      `yaml:"dns,omitempty"`
+	Synchronization string            `yaml:"synchronization"`
+	Static          []BackendsStaticT `yaml:"static,omitempty"`
+	Dns             BackendsDnsT      `yaml:"dns,omitempty"`
 }
 
 type HashKeyT struct {

@@ -3,13 +3,14 @@ package proxy
 import (
 	"crypto/rand"
 	"fmt"
-	"hashrouter/internal/globals"
 	"io"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"hashrouter/internal/globals"
 )
 
 const (
@@ -157,9 +158,9 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 func (p *Proxy) RunHttp() (err error) {
 
 	err = http.ListenAndServe(p.Config.Listener.Address+":"+strconv.Itoa(p.Config.Listener.Port), http.HandlerFunc(p.HTTPHandleFunc))
-	if err != nil {
-		return fmt.Errorf("error launching the listener: %v", err.Error())
-	}
+	// if err != nil {
+	// 	return fmt.Errorf("error launching the listener: %v", err.Error())
+	// }
 
-	return nil
+	return err
 }

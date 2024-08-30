@@ -40,6 +40,7 @@ Here you have a complete example. More up-to-date one will always be maintained 
 
 
 ```yaml
+
 logs:
   show_access_logs: true
   access_logs_fields:
@@ -69,21 +70,36 @@ proxies:
       address: 0.0.0.0
 
     backends:
-      # static:
-      #   - name: varnish-01
-      #     host: 127.0.0.1:8081
+      synchronization: 10s
+      static:
+        - name: varnish-01
+          host: 127.0.0.1:8081
+          # (Optional) Healthcheck configuration
+          # healthcheck:
+          #   timeout: 1s
+          #   retries: 3
+          #   path: /health
 
-      #   - name: varnish-02
-      #     host: 127.0.0.1:8082
+        - name: varnish-02
+          host: 127.0.0.1:8082
+          # (Optional) Healthcheck configuration 
+          # healthcheck:
+          #   timeout: 1s
+          #   retries: 3
+          #   path: /health
 
-      #   - name: varnish-03
-      #     host: 127.0.0.1:8083
+        - name: varnish-03
+          host: 127.0.0.1:8083
 
       dns:
         name: varnish-service
         domain: example.com
         port: 80
-        synchronization: 10s
+        # (Optional) Healthcheck configuration 
+        # healthcheck:
+        #   timeout: 1s
+        #   retries: 3
+        #   path: /health
 
     hash_key:
 
@@ -96,7 +112,6 @@ proxies:
     options:
       protocol: http
 
-      # (not implemented yet)
       # protocol: http2
       # certificate: /etc/ssl/certs/achetronic.pem
       # key: /etc/ssl/private/achetronic.key

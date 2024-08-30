@@ -8,6 +8,7 @@ import (
 	"log"
 	"sync"
 	"time"
+	"reflect"
 
 	"github.com/spf13/cobra"
 )
@@ -87,7 +88,26 @@ func RunCommand(cmd *cobra.Command, args []string) {
 
 		proxyObj := proxy.NewProxy(proxyConfig)
 
+		if reflect.ValueOf(proxyObj.Config.Backends.Dns).IsZero() && reflect.ValueOf(proxyObj.Config.Backends.Static).IsZero() {
+			globals.Application.Logger.Errorf("backends not defined for proxy '%s'", proxyObj.Config.Name)
+			continue
+		}
+
+		if !reflect.ValueOf(proxyObj.Config.Backends.Dns).IsZero() && !reflect.ValueOf(proxyObj.Config.Backends.Static).IsZero() {
+			globals.Application.Logger.Errorf("failed to load backends: static and dns are mutually exclusive for proxy '%s'",
+				proxyObj.Config.Name)
+				continue
+		}
+
+		syncTime, err := time.ParseDuration(proxyObj.Config.Backends.Synchronization)
+		if err != nil {
+			globals.Application.Logger.Errorf("error parsing backend synchronization time for proxy '%s': %s", 
+				proxyObj.Config.Name, err.Error())
+			continue
+		}
+
 		waitGroup.Add(1)
+		go proxyObj.Synchronizer(syncTime)
 		go proxyObj.Run(&waitGroup)
 
 		time.Sleep(2 * time.Second) // TODO: unhardcode this

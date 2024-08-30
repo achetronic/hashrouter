@@ -28,21 +28,36 @@ proxies:
       address: 0.0.0.0
 
     backends:
+      synchronization: 10s
       static:
         - name: varnish-01
           host: 127.0.0.1:8081
+          # (Optional) Healthcheck configuration
+          # healthcheck:
+          #   timeout: 1s
+          #   retries: 3
+          #   path: /health
 
         - name: varnish-02
           host: 127.0.0.1:8082
+          # (Optional) Healthcheck configuration 
+          # healthcheck:
+          #   timeout: 1s
+          #   retries: 3
+          #   path: /health
 
         - name: varnish-03
           host: 127.0.0.1:8083
 
-      # dns:
-      #   name: varnish-service
-      #   domain: example.com
-      #   port: 80
-      #   synchronization: 10s
+      dns:
+        name: varnish-service
+        domain: example.com
+        port: 80
+        # (Optional) Healthcheck configuration 
+        # healthcheck:
+        #   timeout: 1s
+        #   retries: 3
+        #   path: /health
 
     hash_key:
 
