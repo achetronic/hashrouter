@@ -79,9 +79,13 @@ func (p *Proxy) Synchronizer(syncTime time.Duration) {
 					hostPool = append(hostPool, backend.Host)
 					break
 				}
-				globals.Application.Logger.Errorf("unable to check '%s' host: %s", backend.Host, err.Error())
-			}
 
+				if err != nil {
+					globals.Application.Logger.Errorf("unable to perform healthcheck on host '%s': %s", backend.Host, err.Error())
+				}
+
+				globals.Application.Logger.Errorf("healthcheck failed for host '%s' with status '%s'", backend.Host, resp.Status)
+			}
 		}
 
 		currentServerList := p.Hashring.GetServerList()

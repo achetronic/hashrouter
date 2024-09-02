@@ -6,9 +6,9 @@ import (
 	"hashrouter/internal/globals"
 	"hashrouter/internal/proxy"
 	"log"
+	"reflect"
 	"sync"
 	"time"
-	"reflect"
 
 	"github.com/spf13/cobra"
 )
@@ -96,12 +96,12 @@ func RunCommand(cmd *cobra.Command, args []string) {
 		if !reflect.ValueOf(proxyObj.Config.Backends.Dns).IsZero() && !reflect.ValueOf(proxyObj.Config.Backends.Static).IsZero() {
 			globals.Application.Logger.Errorf("failed to load backends: static and dns are mutually exclusive for proxy '%s'",
 				proxyObj.Config.Name)
-				continue
+			continue
 		}
 
 		syncTime, err := time.ParseDuration(proxyObj.Config.Backends.Synchronization)
 		if err != nil {
-			globals.Application.Logger.Errorf("error parsing backend synchronization time for proxy '%s': %s", 
+			globals.Application.Logger.Errorf("error parsing backend synchronization time for proxy '%s': %s",
 				proxyObj.Config.Name, err.Error())
 			continue
 		}
