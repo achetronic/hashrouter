@@ -57,6 +57,7 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	hashKey, err := ReplaceRequestTags(r, p.Config.HashKey.Pattern)
 	if err != nil {
 		globals.Application.Logger.Errorf("error calculating hash_key: %v", err.Error())
+		writeDirectResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	hashKey = strings.TrimSpace(hashKey)
@@ -140,6 +141,9 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(k, headV)
 		}
 	}
+
+	// set status code of the response
+	w.WriteHeader(resp.StatusCode)
 
 	// Copy the data without trully reading it
 	_, err = io.Copy(w, resp.Body)
