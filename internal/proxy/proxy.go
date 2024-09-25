@@ -22,12 +22,8 @@ type ProxyStatusT struct {
 // ProxyStatusT represents a proxy.
 // It here as it's used by both 'proxy' and 'globals' packages.
 type ProxyT struct {
-	// TODO: Avoid having global config here.
-	// Pass global options in a different way.
-	GlobalConfig api.ConfigT
-
-	//
-	Config api.ProxyT
+	CommonConfig api.CommonT
+	SelfConfig   api.ProxyT
 
 	//
 	Hashring *hashring.HashRing
@@ -39,16 +35,13 @@ type ProxyT struct {
 }
 
 // NewProxy return a new ProxyT instance
-func NewProxy(globalConfig api.ConfigT, config api.ProxyT, log *zap.SugaredLogger, met *metrics.PoolT) (proxy *ProxyT) {
+func NewProxy(commonConfig api.CommonT, selfConfig api.ProxyT, log *zap.SugaredLogger, met *metrics.PoolT) (proxy *ProxyT) {
 
 	proxy = &ProxyT{
-		// TODO: Avoid having global config here.
-		// Pass global options in a different way.
-		GlobalConfig: globalConfig,
+		CommonConfig: commonConfig,
+		SelfConfig:   selfConfig,
 
 		//
-		Config: config,
-
 		Hashring: nil,
 		Status:   &ProxyStatusT{},
 
@@ -71,7 +64,7 @@ func (p *ProxyT) Run(waitGroup *sync.WaitGroup) {
 	for {
 
 		// Run the proxy
-		if p.Config.Options.Protocol == "http2" {
+		if p.SelfConfig.Options.Protocol == "http2" {
 			err = p.RunHttp2()
 		} else {
 			err = p.RunHttp()

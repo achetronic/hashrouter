@@ -52,7 +52,7 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	connectionExtraData.RequestId = requestId
 
 	// calculate hashkey
-	hashKey, err := ReplaceRequestTags(r, p.Config.HashKey.Pattern)
+	hashKey, err := ReplaceRequestTags(r, p.SelfConfig.HashKey.Pattern)
 	if err != nil {
 		p.Logger.Errorf("error calculating hash_key: %v", err.Error())
 		writeDirectResponse(w, http.StatusInternalServerError, "Internal Server Error")
@@ -84,8 +84,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
 		//
 		httpTimeout := defaultBackendConnectTimeoutMilliseconds * time.Millisecond
-		if p.Config.Options.BackendConnectTimeoutMilliseconds > 0 {
-			httpTimeout = time.Duration(p.Config.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
+		if p.SelfConfig.Options.BackendConnectTimeoutMilliseconds > 0 {
+			httpTimeout = time.Duration(p.SelfConfig.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
 		}
 
 		var backendCient = &http.Client{
@@ -105,7 +105,7 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		p.Logger.Debugf("failed connecting to server '%s': %v", hashringServerPool[indexToTry], err.Error())
 
 		// There is an error but user does not want to try another backend
-		if !p.Config.Options.TryAnotherBackendOnFailure {
+		if !p.SelfConfig.Options.TryAnotherBackendOnFailure {
 			p.Logger.Infof("'options.try_another_backend_on_failure' is disabled, skip trying another backend.")
 			break
 		}
@@ -128,8 +128,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Throw request log as early as possible
-	if p.GlobalConfig.Logs.ShowAccessLogs {
-		logFields := GetRequestLogFields(r, connectionExtraData, p.GlobalConfig.Logs.AccessLogsFields)
+	if p.CommonConfig.Logs.ShowAccessLogs {
+		logFields := GetRequestLogFields(r, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields)
 		p.Logger.Infow("request", logFields...)
 	}
 
@@ -150,8 +150,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//
-	if p.GlobalConfig.Logs.ShowAccessLogs {
-		logFields := GetResponseLogFields(resp, connectionExtraData, p.GlobalConfig.Logs.AccessLogsFields)
+	if p.CommonConfig.Logs.ShowAccessLogs {
+		logFields := GetResponseLogFields(resp, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields)
 		p.Logger.Infow("response", logFields...)
 	}
 }
@@ -164,7 +164,7 @@ func (p *ProxyT) RunHttp() (err error) {
 	p.Status.RWMutex.Unlock()
 
 	err = http.ListenAndServe(
-		p.Config.Listener.Address+":"+strconv.Itoa(p.Config.Listener.Port),
+		p.SelfConfig.Listener.Address+":"+strconv.Itoa(p.SelfConfig.Listener.Port),
 		http.HandlerFunc(p.HTTPHandleFunc))
 
 	return err

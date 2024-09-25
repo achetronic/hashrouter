@@ -69,6 +69,11 @@ type LogsT struct {
 	AccessLogsFields []string `yaml:"access_logs_fields"`
 }
 
+// GlobalT TODO
+type CommonT struct {
+	Logs LogsT `yaml:"logs"`
+}
+
 // ProxyT TODO
 type ProxyT struct {
 	Name     string    `yaml:"name"`
@@ -80,6 +85,6 @@ type ProxyT struct {
 
 // ConfigT TODO
 type ConfigT struct {
-	Logs    LogsT    `yaml:"logs"`
+	Common  CommonT  `yaml:"common"`
 	Proxies []ProxyT `yaml:"proxies"`
 }

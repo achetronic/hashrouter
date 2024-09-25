@@ -28,8 +28,8 @@ func (p *ProxyT) Synchronizer(syncTime time.Duration) {
 		hostPool := []string{}
 
 		// STATIC ---
-		if !reflect.ValueOf(p.Config.Backends.Static).IsZero() {
-			for _, backend := range p.Config.Backends.Static {
+		if !reflect.ValueOf(p.SelfConfig.Backends.Static).IsZero() {
+			for _, backend := range p.SelfConfig.Backends.Static {
 				tmpHostPool = append(tmpHostPool, BackendT{
 					Host:   backend.Host,
 					Health: backend.HealthCheck,
@@ -38,25 +38,25 @@ func (p *ProxyT) Synchronizer(syncTime time.Duration) {
 		}
 
 		// DNS ---
-		if !reflect.ValueOf(p.Config.Backends.Dns).IsZero() {
+		if !reflect.ValueOf(p.SelfConfig.Backends.Dns).IsZero() {
 
 			p.Logger.Infof("syncing hashring with DNS")
 
-			discoveredIps, err := net.LookupIP(p.Config.Backends.Dns.Domain)
+			discoveredIps, err := net.LookupIP(p.SelfConfig.Backends.Dns.Domain)
 			if err != nil {
-				p.Logger.Errorf("error looking up %s: %s", p.Config.Backends.Dns.Domain, err.Error())
+				p.Logger.Errorf("error looking up %s: %s", p.SelfConfig.Backends.Dns.Domain, err.Error())
 			}
 
 			for _, discoveredIp := range discoveredIps {
 
-				hostAddress := discoveredIp.String() + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
+				hostAddress := discoveredIp.String() + ":" + strconv.Itoa(p.SelfConfig.Backends.Dns.Port)
 				if IsIPv6(discoveredIp.String()) {
-					hostAddress = "[" + hostAddress + "]" + ":" + strconv.Itoa(p.Config.Backends.Dns.Port)
+					hostAddress = "[" + hostAddress + "]" + ":" + strconv.Itoa(p.SelfConfig.Backends.Dns.Port)
 				}
 
 				tmpHostPool = append(tmpHostPool, BackendT{
 					Host:   hostAddress,
-					Health: p.Config.Backends.Dns.HealthCheck,
+					Health: p.SelfConfig.Backends.Dns.HealthCheck,
 				})
 
 			}
