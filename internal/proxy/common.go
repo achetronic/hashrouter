@@ -2,11 +2,12 @@ package proxy
 
 import (
 	"fmt"
-	"hashrouter/internal/globals"
+	"hashrouter/internal/utils"
 	"net"
 	"net/http"
 	"regexp"
 	"strings"
+	//
 )
 
 const (
@@ -82,7 +83,7 @@ func ReplaceRequestHeaderTags(req *http.Request, textToProcess string) (result s
 	result = RequestHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := RequestHeadersPatternCompiled.FindStringSubmatch(match)[1]
-		headerValue := req.Header.Get(globals.CapitalizeWords(variable))
+		headerValue := req.Header.Get(utils.CapitalizeWords(variable))
 
 		if headerValue != "" {
 			return headerValue
@@ -111,7 +112,7 @@ func ReplaceResponseHeaderTags(res *http.Response, textToProcess string) (result
 	result = ResponseHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := ResponseHeadersPatternCompiled.FindStringSubmatch(match)[1]
-		headerValue := res.Header.Get(globals.CapitalizeWords(variable))
+		headerValue := res.Header.Get(utils.CapitalizeWords(variable))
 
 		if headerValue != "" {
 			return headerValue

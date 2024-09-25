@@ -1,10 +1,8 @@
 package proxy
 
-import "hashrouter/internal/globals"
+func (p *ProxyT) RunHttp2() (err error) {
 
-func (p *Proxy) RunHttp2() (err error) {
-
-	globals.Application.Logger.Infof("not implemented yet")
+	p.Logger.Infof("not implemented yet")
 	return err
 
 }

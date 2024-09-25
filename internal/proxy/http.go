@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"hashrouter/internal/globals"
 )
 
 const (
@@ -39,7 +37,7 @@ func generateRandToken() string {
 }
 
 // TODO
-func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
+func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -56,7 +54,7 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	// calculate hashkey
 	hashKey, err := ReplaceRequestTags(r, p.Config.HashKey.Pattern)
 	if err != nil {
-		globals.Application.Logger.Errorf("error calculating hash_key: %v", err.Error())
+		p.Logger.Errorf("error calculating hash_key: %v", err.Error())
 		writeDirectResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
@@ -79,7 +77,7 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		url := fmt.Sprintf("http://%s%s", currentSelectedBackend, r.URL.Path+"?"+r.URL.RawQuery)
 		req, err := http.NewRequest(r.Method, url, r.Body)
 		if err != nil {
-			globals.Application.Logger.Errorf("error creating request object: %s", err.Error())
+			p.Logger.Errorf("error creating request object: %s", err.Error())
 			break
 		}
 		req.Header = r.Header
@@ -104,17 +102,17 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		lastErr = err
 
 		// TODO: Discuss this message usefulness with more people
-		globals.Application.Logger.Debugf("failed connecting to server '%s': %v", hashringServerPool[indexToTry], err.Error())
+		p.Logger.Debugf("failed connecting to server '%s': %v", hashringServerPool[indexToTry], err.Error())
 
 		// There is an error but user does not want to try another backend
 		if !p.Config.Options.TryAnotherBackendOnFailure {
-			globals.Application.Logger.Infof("'options.try_another_backend_on_failure' is disabled, skip trying another backend.")
+			p.Logger.Infof("'options.try_another_backend_on_failure' is disabled, skip trying another backend.")
 			break
 		}
 	}
 
 	if lastErr != nil {
-		globals.Application.Logger.Errorf("failed connecting to all backend servers: %v", lastErr.Error())
+		p.Logger.Errorf("failed connecting to all backend servers: %v", lastErr.Error())
 		connectionExtraData.Backend = "none"
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
@@ -122,7 +120,7 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(hashringServerPool) == 0 {
-		globals.Application.Logger.Errorf("failed connecting to all backend servers: no backends found")
+		p.Logger.Errorf("failed connecting to all backend servers: no backends found")
 		connectionExtraData.Backend = "none"
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
@@ -130,9 +128,9 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Throw request log as early as possible
-	if globals.Application.Config.Logs.ShowAccessLogs {
-		logFields := GetRequestLogFields(r, connectionExtraData, globals.Application.Config.Logs.AccessLogsFields)
-		globals.Application.Logger.Infow("request", logFields...)
+	if p.GlobalConfig.Logs.ShowAccessLogs {
+		logFields := GetRequestLogFields(r, connectionExtraData, p.GlobalConfig.Logs.AccessLogsFields)
+		p.Logger.Infow("request", logFields...)
 	}
 
 	// Clone the headers
@@ -148,23 +146,26 @@ func (p *Proxy) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	// Copy the data without trully reading it
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
-		globals.Application.Logger.Errorf("failed sending body to the backends: %s", err.Error())
+		p.Logger.Errorf("failed sending body to the backends: %s", err.Error())
 	}
 
 	//
-	if globals.Application.Config.Logs.ShowAccessLogs {
-		logFields := GetResponseLogFields(resp, connectionExtraData, globals.Application.Config.Logs.AccessLogsFields)
-		globals.Application.Logger.Infow("response", logFields...)
+	if p.GlobalConfig.Logs.ShowAccessLogs {
+		logFields := GetResponseLogFields(resp, connectionExtraData, p.GlobalConfig.Logs.AccessLogsFields)
+		p.Logger.Infow("response", logFields...)
 	}
 }
 
 // TODO
-func (p *Proxy) RunHttp() (err error) {
+func (p *ProxyT) RunHttp() (err error) {
 
-	err = http.ListenAndServe(p.Config.Listener.Address+":"+strconv.Itoa(p.Config.Listener.Port), http.HandlerFunc(p.HTTPHandleFunc))
-	// if err != nil {
-	// 	return fmt.Errorf("error launching the listener: %v", err.Error())
-	// }
+	p.Status.RWMutex.Lock()
+	p.Status.IsHealthy = true
+	p.Status.RWMutex.Unlock()
+
+	err = http.ListenAndServe(
+		p.Config.Listener.Address+":"+strconv.Itoa(p.Config.Listener.Port),
+		http.HandlerFunc(p.HTTPHandleFunc))
 
 	return err
 }

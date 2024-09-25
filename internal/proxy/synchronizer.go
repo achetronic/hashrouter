@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"hashrouter/api"
-	"hashrouter/internal/globals"
 	"hashrouter/internal/hashring"
 )
 
@@ -21,7 +20,7 @@ type BackendT struct {
 }
 
 // TODO
-func (p *Proxy) Synchronizer(syncTime time.Duration) {
+func (p *ProxyT) Synchronizer(syncTime time.Duration) {
 	p.Hashring = hashring.NewHashRing(1000)
 
 	for {
@@ -41,11 +40,11 @@ func (p *Proxy) Synchronizer(syncTime time.Duration) {
 		// DNS ---
 		if !reflect.ValueOf(p.Config.Backends.Dns).IsZero() {
 
-			globals.Application.Logger.Infof("syncing hashring with DNS")
+			p.Logger.Infof("syncing hashring with DNS")
 
 			discoveredIps, err := net.LookupIP(p.Config.Backends.Dns.Domain)
 			if err != nil {
-				globals.Application.Logger.Errorf("error looking up %s: %s", p.Config.Backends.Dns.Domain, err.Error())
+				p.Logger.Errorf("error looking up %s: %s", p.Config.Backends.Dns.Domain, err.Error())
 			}
 
 			for _, discoveredIp := range discoveredIps {
@@ -81,10 +80,10 @@ func (p *Proxy) Synchronizer(syncTime time.Duration) {
 				}
 
 				if err != nil {
-					globals.Application.Logger.Errorf("unable to perform healthcheck on host '%s': %s", backend.Host, err.Error())
+					p.Logger.Errorf("unable to perform healthcheck on host '%s': %s", backend.Host, err.Error())
 				}
 
-				globals.Application.Logger.Errorf("healthcheck failed for host '%s' with status '%s'", backend.Host, resp.Status)
+				p.Logger.Errorf("healthcheck failed for host '%s' with status '%s'", backend.Host, resp.Status)
 			}
 		}
 
@@ -112,7 +111,7 @@ func (p *Proxy) Synchronizer(syncTime time.Duration) {
 			p.Hashring.RemoveServer(server)
 		}
 
-		globals.Application.Logger.Infof("current hashring: %s", p.Hashring.String())
+		p.Logger.Infof("current hashring: %s", p.Hashring.String())
 
 		time.Sleep(syncTime)
 	}

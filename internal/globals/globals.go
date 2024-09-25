@@ -3,6 +3,7 @@ package globals
 import (
 	"context"
 	"hashrouter/api"
+	"hashrouter/internal/proxy"
 	"time"
 
 	"go.uber.org/zap"
@@ -11,24 +12,27 @@ import (
 
 var (
 	Application = ApplicationT{
-		Context: context.Background(),
+		Context:   context.Background(),
+		ProxyPool: make(map[string]*proxy.ProxyT),
 	}
 )
 
 // ApplicationT TODO
 type ApplicationT struct {
 	Context context.Context
-	Logger  zap.SugaredLogger
 	Config  api.ConfigT
 
-	//
+	// ProxyPool represents a global pool of pointers to all the proxies.
+	// This will allow access to their properties later,
+	// for checking their status and exposing their 'health' and 'readiness' using only one shared webserver.
+	ProxyPool map[string]*proxy.ProxyT
 }
 
 // SetLogger TODO
-func SetLogger(logLevel string, disableTrace bool) (err error) {
+func GetLogger(logLevel string, disableTrace bool) (logger *zap.SugaredLogger, err error) {
 	parsedLogLevel, err := zap.ParseAtomicLevel(logLevel)
 	if err != nil {
-		return err
+		return logger, err
 	}
 
 	// Initialize the logger
@@ -43,11 +47,10 @@ func SetLogger(logLevel string, disableTrace bool) (err error) {
 	loggerConfig.Level.SetLevel(parsedLogLevel.Level())
 
 	// Configure the logger
-	logger, err := loggerConfig.Build()
+	loggerObj, err := loggerConfig.Build()
 	if err != nil {
-		return err
+		return logger, err
 	}
 
-	Application.Logger = *logger.Sugar()
-	return nil
+	return loggerObj.Sugar(), nil
 }

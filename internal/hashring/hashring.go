@@ -103,7 +103,6 @@ func (h *HashRing) GetServerList() (servers []string) {
 	return servers
 }
 
-
 func (h *HashRing) String() string {
 	servers := h.GetServerList()
 	str := "{"
