@@ -16,6 +16,13 @@ const (
 	defaultBackendConnectTimeoutMilliseconds = 40
 )
 
+var (
+	// BackendCient represents the HTTP client to be used across concurrent requests
+	BackendCient = &http.Client{
+		Timeout: defaultBackendConnectTimeoutMilliseconds * time.Millisecond,
+	}
+)
+
 // writeDirectResponse writes a static response.
 // This is used to send errors to the client
 func writeDirectResponse(w http.ResponseWriter, statusCode int, message string) {
@@ -83,17 +90,12 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		req.Header = r.Header
 
 		//
-		httpTimeout := defaultBackendConnectTimeoutMilliseconds * time.Millisecond
 		if p.SelfConfig.Options.BackendConnectTimeoutMilliseconds > 0 {
-			httpTimeout = time.Duration(p.SelfConfig.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
-		}
-
-		var backendCient = &http.Client{
-			Timeout: httpTimeout,
+			BackendCient.Timeout = time.Duration(p.SelfConfig.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
 		}
 
 		//
-		resp, err = backendCient.Do(req)
+		resp, err = BackendCient.Do(req)
 		if err == nil {
 			connectionExtraData.Backend = hashringServerPool[indexToTry]
 			lastErr = nil
@@ -102,7 +104,7 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		lastErr = err
 
 		// TODO: Discuss this message usefulness with more people
-		p.Logger.Debugf("failed connecting to server '%s': %v", hashringServerPool[indexToTry], err.Error())
+		p.Logger.Debugf("failed connecting to server '%s': %s", hashringServerPool[indexToTry], err.Error())
 
 		// There is an error but user does not want to try another backend
 		if !p.SelfConfig.Options.TryAnotherBackendOnFailure {
@@ -112,8 +114,16 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if lastErr != nil {
-		p.Logger.Errorf("failed connecting to all backend servers: %v", lastErr.Error())
+		p.Logger.Errorf("failed connecting to all backend servers: %s", lastErr.Error())
 		connectionExtraData.Backend = "none"
+
+		p.Meter.HttpRequestsTotal.With(map[string]string{
+			"proxy_name":  p.SelfConfig.Name,
+			"method":      r.Method,
+			"status_code": strconv.Itoa(http.StatusServiceUnavailable),
+			"actor":       "self",
+			"cause":       "all_backends_failed",
+		}).Add(1)
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
 		return
@@ -122,6 +132,14 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	if len(hashringServerPool) == 0 {
 		p.Logger.Errorf("failed connecting to all backend servers: no backends found")
 		connectionExtraData.Backend = "none"
+
+		p.Meter.HttpRequestsTotal.With(map[string]string{
+			"proxy_name":  p.SelfConfig.Name,
+			"method":      r.Method,
+			"status_code": strconv.Itoa(http.StatusServiceUnavailable),
+			"actor":       "self",
+			"cause":       "no_backends_found",
+		}).Add(1)
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
 		return
@@ -150,6 +168,14 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//
+	p.Meter.HttpRequestsTotal.With(map[string]string{
+		"proxy_name":  p.SelfConfig.Name,
+		"method":      r.Method,
+		"status_code": strconv.Itoa(resp.StatusCode),
+		"actor":       "backend",
+		"cause":       "none",
+	}).Add(1)
+
 	if p.CommonConfig.Logs.ShowAccessLogs {
 		logFields := GetResponseLogFields(resp, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields)
 		p.Logger.Infow("response", logFields...)
