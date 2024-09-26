@@ -43,21 +43,11 @@ func (p *PoolT) RegisterMetrics(extraLabelNames []string) {
 	parsedLabels := maps.Values(parsedLabelsMap)
 
 	// Metric: http_requests_total
-	httpRequestsTotalLabels := []string{"proxy_name", "method", "status_code", "actor", "cause"}
+	httpRequestsTotalLabels := []string{"proxy_name", "method", "delivered_status_code", "error"}
 	httpRequestsTotalLabels = append(httpRequestsTotalLabels, parsedLabels...)
 
 	p.HttpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: MetricsPrefix + "http_requests_total",
 		Help: "total amount of requests by status code",
 	}, httpRequestsTotalLabels)
-
-	// // Metric: backend_connection_failures_total
-	// backendConnectionFailuresTotalLabels := []string{"proxy_name", "method", "cause"}
-	// backendConnectionFailuresTotalLabels = append(backendConnectionFailuresTotalLabels, parsedLabels...)
-
-	// p.BackendConnectionFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-	// 	Name: MetricsPrefix + "backend_connection_failures_total",
-	// 	Help: "total amount of requests that where tried against all the backends and failed",
-	// }, backendConnectionFailuresTotalLabels)
-
 }

@@ -42,11 +42,21 @@ func generateRandToken() string {
 // TODO
 func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
+	//
+	httpRequestsTotalMetricLabels := map[string]string{
+		"proxy_name": p.SelfConfig.Name,
+		"method":     r.Method,
+	}
+
+	defer func() {
+		p.Meter.HttpRequestsTotal.With(httpRequestsTotalMetricLabels).Add(1)
+	}()
+
 	var err error
 
 	// The variable 'lastErr' is used to store the last error that occurred while trying to connect to a backend.
 	// You should be wondering why we are using this variable... Well, there is a 'kind of' race condition where
-	// the we could cause a panic in runtime using directly 'err' during the loop you will observe soon.
+	// the we could error a panic in runtime using directly 'err' during the loop you will observe soon.
 	var lastErr error
 
 	connectionExtraData := ConnectionExtraData{}
@@ -58,6 +68,10 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	hashKey, err := ReplaceRequestTags(r, p.SelfConfig.HashKey.Pattern)
 	if err != nil {
 		p.Logger.Errorf("error calculating hash_key: %v", err.Error())
+
+		httpRequestsTotalMetricLabels["delivered_status_code"] = strconv.Itoa(http.StatusInternalServerError)
+		httpRequestsTotalMetricLabels["error"] = "hash_key_calculation_failed"
+
 		writeDirectResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
@@ -119,13 +133,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		p.Logger.Errorf("failed connecting to all backend servers: %s", lastErr.Error())
 		connectionExtraData.Backend = "none"
 
-		p.Meter.HttpRequestsTotal.With(map[string]string{
-			"proxy_name":  p.SelfConfig.Name,
-			"method":      r.Method,
-			"status_code": strconv.Itoa(http.StatusServiceUnavailable),
-			"actor":       "self",
-			"cause":       "all_backends_failed",
-		}).Add(1)
+		httpRequestsTotalMetricLabels["delivered_status_code"] = strconv.Itoa(http.StatusServiceUnavailable)
+		httpRequestsTotalMetricLabels["error"] = "all_backends_failed"
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
 		return
@@ -135,13 +144,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		p.Logger.Errorf("failed connecting to all backend servers: no backends found")
 		connectionExtraData.Backend = "none"
 
-		p.Meter.HttpRequestsTotal.With(map[string]string{
-			"proxy_name":  p.SelfConfig.Name,
-			"method":      r.Method,
-			"status_code": strconv.Itoa(http.StatusServiceUnavailable),
-			"actor":       "self",
-			"cause":       "no_backends_found",
-		}).Add(1)
+		httpRequestsTotalMetricLabels["delivered_status_code"] = strconv.Itoa(http.StatusServiceUnavailable)
+		httpRequestsTotalMetricLabels["error"] = "no_backends_found"
 
 		writeDirectResponse(w, http.StatusServiceUnavailable, "Service Unavailable")
 		return
@@ -164,20 +168,17 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	// Copy the data without trully reading it
+	httpRequestsTotalMetricLabels["delivered_status_code"] = strconv.Itoa(resp.StatusCode)
+	httpRequestsTotalMetricLabels["error"] = "none"
+
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
-		p.Logger.Errorf("failed sending body to the backends: %s", err.Error())
+		p.Logger.Errorf("failed copying body to the frontend: %s", err.Error())
+
+		httpRequestsTotalMetricLabels["error"] = "body_copy_failed"
 	}
 
 	//
-	p.Meter.HttpRequestsTotal.With(map[string]string{
-		"proxy_name":  p.SelfConfig.Name,
-		"method":      r.Method,
-		"status_code": strconv.Itoa(resp.StatusCode),
-		"actor":       "backend",
-		"cause":       "none",
-	}).Add(1)
-
 	if p.CommonConfig.Logs.ShowAccessLogs {
 		logFields := GetResponseLogFields(resp, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields)
 		p.Logger.Infow("response", logFields...)
