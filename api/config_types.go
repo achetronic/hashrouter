@@ -59,8 +59,8 @@ type OptionsT struct {
 	TlsKey         string `yaml:"tls_key,omitempty"`
 
 	//
-	BackendConnectTimeoutMilliseconds int  `yaml:"backend_connect_timeout_ms,omitempty"`
-	TryAnotherBackendOnFailure        bool `yaml:"try_another_backend_on_failure,omitempty"`
+	HttpBackendRequestTimeoutMilliseconds int  `yaml:"http_backend_request_timeout_ms,omitempty"`
+	TryAnotherBackendOnFailure            bool `yaml:"try_another_backend_on_failure,omitempty"`
 }
 
 // LogsT TODO

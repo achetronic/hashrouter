@@ -12,15 +12,11 @@ import (
 )
 
 const (
-	// defaultBackendConnectTimeoutMilliseconds is the default timeout for connecting to a backend
-	defaultBackendConnectTimeoutMilliseconds = 40
-)
 
-var (
-	// BackendCient represents the HTTP client to be used across concurrent requests
-	BackendCient = &http.Client{
-		Timeout: defaultBackendConnectTimeoutMilliseconds * time.Millisecond,
-	}
+	// (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
+	// including both connection and data transfer.
+	// If the request takes longer than this timeout, it will be aborted. (default: 40ms)
+	defaultHttpBackendRequestTimeoutMilliseconds = 40
 )
 
 // writeDirectResponse writes a static response.
@@ -90,12 +86,18 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		req.Header = r.Header
 
 		//
-		if p.SelfConfig.Options.BackendConnectTimeoutMilliseconds > 0 {
-			BackendCient.Timeout = time.Duration(p.SelfConfig.Options.BackendConnectTimeoutMilliseconds) * time.Millisecond
+		backendClientTimeout := defaultHttpBackendRequestTimeoutMilliseconds * time.Millisecond
+		if p.SelfConfig.Options.HttpBackendRequestTimeoutMilliseconds > 0 {
+			backendClientTimeout = time.Duration(p.SelfConfig.Options.HttpBackendRequestTimeoutMilliseconds) * time.Millisecond
+		}
+
+		// BackendCient represents the HTTP client to be used across concurrent requests
+		backendCient := &http.Client{
+			Timeout: backendClientTimeout,
 		}
 
 		//
-		resp, err = BackendCient.Do(req)
+		resp, err = backendCient.Do(req)
 		if err == nil {
 			connectionExtraData.Backend = hashringServerPool[indexToTry]
 			lastErr = nil

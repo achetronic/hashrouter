@@ -77,9 +77,10 @@ proxies:
     options:
       protocol: http
 
-      # (optional) Time in milliseconds to close connection trial 
-      # to the backend and consider it unavailable
-      backend_connect_timeout_ms: 40
+      # (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
+      # including both connection and data transfer.
+      # If the request takes longer than this timeout, it will be aborted. (default: 40ms)
+      http_backend_request_timeout_ms: 40
 
       # (optional) Hashring always assigns the same backend to the hashkey.
       # If the backend is down, you can try another backend until exaushting all of them
