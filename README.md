@@ -19,13 +19,17 @@ Additionally, implementing this solution as a plugin for Nginx or Envoy is chall
 As every configuration parameter can be defined in the config file, there are only few flags that can be defined.
 They are described in the following table:
 
-| Name              | Description                    |      Default      | Example                      |
-|:------------------|:-------------------------------|:-----------------:|:-----------------------------|
-| `--config`        | Path to the YAML config file   | `hashrouter.yaml` | `--config ./hashrouter.yaml` |
-| `--log-level`     | Verbosity level for logs       |      `info`       | `--log-level info`           |
-| `--disable-trace` | Disable showing traces in logs |      `false`      | `--disable-trace`            |
+| Name              | Description                       |      Default      | Example                      |
+|:------------------|:----------------------------------|:-----------------:|:-----------------------------|
+| `--config`        | Path to the YAML config file      | `hashrouter.yaml` | `--config ./hashrouter.yaml` |
+| `--log-level`     | Verbosity level for logs          |      `info`       | `--log-level info`           |
+| `--disable-trace` | Disable showing traces in logs    |      `false`      | `--disable-trace`            |
+| `--metrics-host`  | Host to expose _status_ endpoints |     `0.0.0.0`     | `--metrics-host 0.0.0.0`     |
+| `--metrics-port`  | Port to expose _status_ endpoints |      `2112`       | `--metrics-port 9090`        |
 
 > Output is thrown always in JSON as it is more suitable for automations
+>
+> _Status_ endpoints are located in `/metrics` and `/{proxy-name}/health`
 
 ```console
 hashrouter run \
@@ -40,27 +44,27 @@ Here you have a complete example. More up-to-date one will always be maintained 
 
 
 ```yaml
-logs:
-  show_access_logs: true
-  access_logs_fields:
-  - ${REQUEST:method}
-  - ${REQUEST:host}
-  - ${REQUEST:path}
-  - ${REQUEST:proto}
-  - ${REQUEST:referer}
+common:
+  logs:
+    show_access_logs: true
+    access_logs_fields:
+    - ${REQUEST:method}
+    - ${REQUEST:host}
+    - ${REQUEST:path}
+    - ${REQUEST:proto}
+    - ${REQUEST:referer}
 
-  - ${REQUEST_HEADER:user-agent}
-  - ${REQUEST_HEADER:x-forwarded-for}
-  - ${REQUEST_HEADER:x-real-ip}
+    - ${REQUEST_HEADER:user-agent}
+    - ${REQUEST_HEADER:x-forwarded-for}
+    - ${REQUEST_HEADER:x-real-ip}
 
-  - ${RESPONSE_HEADER:content-length}
-  - ${RESPONSE_HEADER:content-type}
+    - ${RESPONSE_HEADER:content-length}
+    - ${RESPONSE_HEADER:content-type}
 
-  - ${EXTRA:request-id}
-  - ${EXTRA:hashkey}
-  - ${EXTRA:backend}
+    - ${EXTRA:request-id}
+    - ${EXTRA:hashkey}
+    - ${EXTRA:backend}
   
-
 proxies:
   - name: varnish
 
