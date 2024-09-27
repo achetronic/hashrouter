@@ -81,6 +81,7 @@ func (p *ProxyT) Synchronizer(syncTime time.Duration) {
 
 				if err != nil {
 					p.Logger.Errorf("unable to perform healthcheck on host '%s': %s", backend.Host, err.Error())
+					continue
 				}
 
 				p.Logger.Errorf("healthcheck failed for host '%s' with status '%s'", backend.Host, resp.Status)
