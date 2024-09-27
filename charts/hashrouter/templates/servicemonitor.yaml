@@ -1,0 +1,47 @@
+{{- if and .Values.agent.service.enabled .Values.agent.monitoring.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "hashrouter.fullname" . }}
+  labels:
+    {{- include "hashrouter.labels" . | nindent 4 }}
+    {{- with .Values.agent.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+  {{- with .Values.agent.monitoring.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  endpoints:
+  - path: /metrics
+    port: http-metrics
+    scheme: http
+    targetPort: 2112
+
+    honorLabels: true
+
+    {{- if .Values.agent.monitoring.serviceMonitor.interval }}
+    interval: {{ .Values.agent.monitoring.serviceMonitor.interval }}
+    {{- end }}
+
+    {{- if .Values.agent.monitoring.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{ tpl (toYaml .Values.agent.monitoring.serviceMonitor.metricRelabelings | nindent 6) . }}
+    {{- end }}
+
+    {{- if .Values.agent.monitoring.serviceMonitor.relabelings }}
+    relabelings:
+    {{ tpl (toYaml .Values.agent.monitoring.serviceMonitor.relabelings | nindent 6) . }}
+    {{- end }}
+
+    {{- with .Values.agent.monitoring.serviceMonitor.tlsConfig }}
+    tlsConfig:
+    {{- toYaml . | nindent 6 }}
+    {{- end }}
+
+  selector:
+    matchLabels:
+      {{- include "hashrouter.selectorLabels" . | nindent 6 }}
+{{- end }}

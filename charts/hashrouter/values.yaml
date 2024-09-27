@@ -130,7 +130,7 @@ agent:
 
   # 
   service:
-    enabled: false
+    enabled: true
     # clusterIP controls whether a Cluster IP address is attached to the
     # service within Kubernetes. By default, the service will
     # be given a Cluster IP address, set to None to disable. When disabled
@@ -180,6 +180,37 @@ agent:
     # YAML-formatted multi-line templated string map of the annotations to apply
     # to the service.
     annotations: {}
+
+  monitoring:
+
+    serviceMonitor:
+      enabled: false
+      
+      # Additional labels for the service monitor.
+      additionalLabels: {}
+
+      # Scrape interval. If not set, the Prometheus default scrape interval is used.
+      interval: ""
+
+      # MetricRelabelConfigs to apply to samples after scraping, but before ingestion.
+      # ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#relabelconfig
+      metricRelabelings: []
+      # - action: keep
+      #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+      #   sourceLabels: [__name__]
+
+      # Customize tls parameters for the service monitor
+      tlsConfig: {}
+
+      # RelabelConfigs to apply to samples before scraping
+      # ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#relabelconfig
+      relabelings: []
+      # - sourceLabels: [__meta_kubernetes_pod_node_name]
+      #   separator: ;
+      #   regex: ^(.*)$
+      #   targetLabel: nodename
+      #   replacement: $1
+      #   action: replace    
 
 # Define some extra resources to be created
 # This section is useful when you need ExternalResource or Secrets, etc.

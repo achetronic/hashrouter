@@ -54,7 +54,13 @@ spec:
       {{- if and ($value.nodePort) (eq ($.Values.agent.service.type | toString) "NodePort") }}
       nodePort: {{ $value.nodePort }}
       {{- end }}
-  {{- end}}
+  {{- end }}
+  {{ if .Values.agent.monitoring.serviceMonitor.enabled }}
+    - name: http-metrics
+      port: 2112
+      targetPort: 2112
+      protocol: http
+  {{- end }}
 
   selector:
     {{- include "hashrouter.selectorLabels" . | nindent 4 }}

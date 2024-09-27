@@ -54,6 +54,13 @@ spec:
             - --config
             - /etc/agent/hashrouter.yaml
 
+            {{- if and .Values.agent.service.enabled .Values.agent.monitoring.serviceMonitor.enabled }}
+            - --metrics-host
+            - '0.0.0.0'
+            - --metrics-port
+            - '2112'
+            {{- end }}
+
           {{- with .Values.agent.extraArgs }}
           args:
             {{ toYaml . | nindent 10 }}
