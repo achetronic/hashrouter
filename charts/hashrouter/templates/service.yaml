@@ -59,7 +59,7 @@ spec:
     - name: http-metrics
       port: 2112
       targetPort: 2112
-      protocol: http
+      protocol: TCP
   {{- end }}
 
   selector:
