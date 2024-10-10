@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"hashrouter/internal/utils"
 	"net"
 	"net/http"
 	"regexp"
@@ -50,7 +49,7 @@ func ReplaceRequestTags(req *http.Request, textToProcess string) (result string)
 
 	result = RequestPartsPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
-		variable := RequestPartsPatternCompiled.FindStringSubmatch(match)[1]
+		variable := strings.ToLower(RequestPartsPatternCompiled.FindStringSubmatch(match)[1])
 
 		if replacement, exists := requestTags[variable]; exists {
 			return replacement
@@ -68,8 +67,8 @@ func ReplaceRequestHeaderTags(req *http.Request, textToProcess string) (result s
 
 	result = RequestHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
-		variable := RequestHeadersPatternCompiled.FindStringSubmatch(match)[1]
-		headerValue := req.Header.Get(utils.CapitalizeWords(variable))
+		variable := strings.ToLower(RequestHeadersPatternCompiled.FindStringSubmatch(match)[1])
+		headerValue := req.Header.Get(variable)
 
 		return headerValue
 	})
@@ -83,8 +82,8 @@ func ReplaceResponseHeaderTags(res *http.Response, textToProcess string) (result
 
 	result = ResponseHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
-		variable := ResponseHeadersPatternCompiled.FindStringSubmatch(match)[1]
-		headerValue := res.Header.Get(utils.CapitalizeWords(variable))
+		variable := strings.ToLower(ResponseHeadersPatternCompiled.FindStringSubmatch(match)[1])
+		headerValue := res.Header.Get(variable)
 
 		return headerValue
 	})
@@ -99,7 +98,7 @@ func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result s
 
 	result = ExtraPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
-		variable := ExtraPatternCompiled.FindStringSubmatch(match)[1]
+		variable := strings.ToLower(ExtraPatternCompiled.FindStringSubmatch(match)[1])
 
 		switch variable {
 		case "request-id":
