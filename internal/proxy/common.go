@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"fmt"
 	"hashrouter/internal/utils"
 	"net"
 	"net/http"
@@ -36,7 +35,7 @@ type ConnectionExtraData struct {
 // ReplaceRequestTags replaces the HTTP request tags in the given text
 // Tags are expressed as ${REQUEST:<part>}, where <part> can be one of the following:
 // scheme, host, port, path, query, method, proto
-func ReplaceRequestTags(req *http.Request, textToProcess string) (result string, err error) {
+func ReplaceRequestTags(req *http.Request, textToProcess string) (result string) {
 
 	// Replace request parts in the format ${REQUEST:<part>}
 	requestTags := map[string]string{
@@ -49,8 +48,6 @@ func ReplaceRequestTags(req *http.Request, textToProcess string) (result string,
 		"proto":  req.Proto,
 	}
 
-	unknownReplacements := make([]string, 0)
-
 	result = RequestPartsPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := RequestPartsPatternCompiled.FindStringSubmatch(match)[1]
@@ -59,86 +56,47 @@ func ReplaceRequestTags(req *http.Request, textToProcess string) (result string,
 			return replacement
 		}
 
-		// As ReplaceAllStringFunc does not support returning an error,
-		// we need to store it for later checks
-		unknownReplacements = append(unknownReplacements, match)
-		return match
+		return ""
 	})
 
-	if len(unknownReplacements) > 0 {
-		strings.Join(unknownReplacements, ", ")
-		err = fmt.Errorf("errors while replacing HTTP request parts '%s' in pattern", strings.Join(unknownReplacements, ", "))
-	}
-
-	return result, err
+	return result
 }
 
 // ReplaceRequestHeaderTags replaces the HTTP request headers in the given text
 // Tags are expressed as ${REQUEST_HEADER:<header-name>}
-func ReplaceRequestHeaderTags(req *http.Request, textToProcess string) (result string, err error) {
+func ReplaceRequestHeaderTags(req *http.Request, textToProcess string) (result string) {
 
-	unknownReplacements := make([]string, 0)
-
-	// Replace headers in the format ${REQUEST_HEADER:<header-name>}
 	result = RequestHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := RequestHeadersPatternCompiled.FindStringSubmatch(match)[1]
 		headerValue := req.Header.Get(utils.CapitalizeWords(variable))
 
-		if headerValue != "" {
-			return headerValue
-		}
-
-		// As ReplaceAllStringFunc does not support returning an error,
-		// we need to store it for later checks
-		unknownReplacements = append(unknownReplacements, match)
-		return match
+		return headerValue
 	})
 
-	if len(unknownReplacements) > 0 {
-		strings.Join(unknownReplacements, ", ")
-		err = fmt.Errorf("errors while replacing HTTP headers '%s' in pattern", strings.Join(unknownReplacements, ", "))
-	}
-	return result, err
+	return result
 }
 
 // ReplaceResponseHeaderTags replaces the HTTP response headers in the given text
 // Tags are expressed as ${RESPONSE_HEADER:<header-name>}
-func ReplaceResponseHeaderTags(res *http.Response, textToProcess string) (result string, err error) {
+func ReplaceResponseHeaderTags(res *http.Response, textToProcess string) (result string) {
 
-	unknownReplacements := make([]string, 0)
-
-	// Replace headers in the format ${RESPONSE_HEADER:<header-name>}
 	result = ResponseHeadersPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := ResponseHeadersPatternCompiled.FindStringSubmatch(match)[1]
 		headerValue := res.Header.Get(utils.CapitalizeWords(variable))
 
-		if headerValue != "" {
-			return headerValue
-		}
-
-		// As ReplaceAllStringFunc does not support returning an error,
-		// we need to store it for later checks
-		unknownReplacements = append(unknownReplacements, match)
-		return match
+		return headerValue
 	})
 
-	if len(unknownReplacements) > 0 {
-		strings.Join(unknownReplacements, ", ")
-		err = fmt.Errorf("errors while replacing HTTP headers '%s' in pattern", strings.Join(unknownReplacements, ", "))
-	}
-	return result, err
+	return result
 }
 
 // ReplaceExtraTags replaces the 'EXTRA' tags in the given text
 // Tags are expressed as ${EXTRA:<field-name>}
 // where <field-name> is one of the following: request-id, hashkey, backend
-func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result string, err error) {
+func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result string) {
 
-	unknownReplacements := make([]string, 0)
-
-	// Replace headers in the format ${RESPONSE_HEADER:<header-name>}
 	result = ExtraPatternCompiled.ReplaceAllStringFunc(textToProcess, func(match string) string {
 
 		variable := ExtraPatternCompiled.FindStringSubmatch(match)[1]
@@ -150,19 +108,12 @@ func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result s
 			return extra.Hashkey
 		case "backend":
 			return extra.Backend
+		default:
+			return ""
 		}
-
-		// As ReplaceAllStringFunc does not support returning an error,
-		// we need to store it for later checks
-		unknownReplacements = append(unknownReplacements, match)
-		return match
 	})
 
-	if len(unknownReplacements) > 0 {
-		strings.Join(unknownReplacements, ", ")
-		err = fmt.Errorf("errors while replacing extra '%s' in pattern", strings.Join(unknownReplacements, ", "))
-	}
-	return result, err
+	return result
 }
 
 // GetRequestLogFields returns the fields attached to a log message for the given HTTP request
@@ -171,11 +122,11 @@ func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, confi
 
 	for _, field := range configurationFields {
 
-		result, _ := ReplaceRequestTags(req, field)
+		result := ReplaceRequestTags(req, field)
 
-		result, _ = ReplaceRequestHeaderTags(req, result)
+		result = ReplaceRequestHeaderTags(req, result)
 
-		result, _ = ReplaceExtraTags(extraData, result)
+		result = ReplaceExtraTags(extraData, result)
 
 		// Ignore not expanded fields
 		if result == field {
@@ -200,9 +151,9 @@ func GetResponseLogFields(res *http.Response, extraData ConnectionExtraData, con
 
 	for _, field := range configurationFields {
 
-		result, _ := ReplaceResponseHeaderTags(res, field)
+		result := ReplaceResponseHeaderTags(res, field)
 
-		result, _ = ReplaceExtraTags(extraData, result)
+		result = ReplaceExtraTags(extraData, result)
 
 		// Ignore not expanded fields
 		if result == field {

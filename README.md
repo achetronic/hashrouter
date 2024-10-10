@@ -39,7 +39,7 @@ hashrouter run \
 
 ## Examples
 
-Here you have a complete example. More up-to-date one will always be maintained in 
+Here you have a complete example. More up-to-date one will always be maintained in
 `docs/prototypes` directory [here](./docs/prototypes)
 
 
@@ -64,7 +64,7 @@ common:
     - ${EXTRA:request-id}
     - ${EXTRA:hashkey}
     - ${EXTRA:backend}
-  
+
 proxies:
   - name: varnish
 
@@ -76,16 +76,16 @@ proxies:
       synchronization: 10s
 
       # ATTENTION:
-      # When the healthchecks are configured, related server is automatically 
-      # added (and removed) to the hashring. 
-      # During backend outages, this mechanism decreases the latency of responses at the 
-      # cost of decreasing the hashring consistency (the router doesn't waste time trying backends in order). 
+      # When the healthchecks are configured, related server is automatically
+      # added (and removed) to the hashring.
+      # During backend outages, this mechanism decreases the latency of responses at the
+      # cost of decreasing the hashring consistency (the router doesn't waste time trying backends in order).
       # This being said, consider your use case
 
       static:
         - name: varnish-01
           host: 127.0.0.1:8081
-          # (Optional) Healthcheck configuration. 
+          # (Optional) Healthcheck configuration.
           #healthcheck:
           #  timeout: 1s
           #  retries: 3
@@ -93,7 +93,7 @@ proxies:
 
         - name: varnish-02
           host: 127.0.0.1:8082
-          # (Optional) Healthcheck configuration 
+          # (Optional) Healthcheck configuration
           # healthcheck:
           #   timeout: 1s
           #   retries: 3
@@ -106,7 +106,7 @@ proxies:
         name: varnish-service
         domain: example.com
         port: 80
-        # (Optional) Healthcheck configuration 
+        # (Optional) Healthcheck configuration
         # healthcheck:
         #   timeout: 1s
         #   retries: 3
@@ -114,10 +114,13 @@ proxies:
 
     hash_key:
 
-      # Key to generate a hash from the request. It can be composed using any of the following:
+      # Key to generate a hash used to route consistently to the same backend over requests.
+      # It can be composed using headers-based key such as: ${REQUEST_HEADER:<your-header>}
+      # Or using any of the following:
       # ${REQUEST:scheme}, ${REQUEST:host}, ${REQUEST:port}, ${REQUEST:path}, ${REQUEST:query}
       # ${REQUEST:method}, ${REQUEST:proto}
-      pattern: "${REQUEST:path}"
+
+      pattern: "${REQUEST_HEADER:<your-header>}${REQUEST:path}"
 
     # Aditional options such as hashing mode or TTL
     options:
@@ -140,7 +143,7 @@ proxies:
 
 ## How to deploy
 
-This project is designed specially for Kubernetes, but also provides binary files 
+This project is designed specially for Kubernetes, but also provides binary files
 and Docker images to make it easy to be deployed however wanted
 
 ### Binaries
@@ -164,10 +167,10 @@ helm upgrade --install --wait hashrouter \
 
 ### Docker
 
-Docker images can be found in GitHub's [packages](https://github.com/achetronic/hashrouter/pkgs/container/hashrouter) 
+Docker images can be found in GitHub's [packages](https://github.com/achetronic/hashrouter/pkgs/container/hashrouter)
 related to this repository
 
-> Do you need it in a different container registry? I think this is not needed, but if I'm wrong, please, let's discuss 
+> Do you need it in a different container registry? I think this is not needed, but if I'm wrong, please, let's discuss
 > it in the best place for that: an issue
 
 ## How to contribute

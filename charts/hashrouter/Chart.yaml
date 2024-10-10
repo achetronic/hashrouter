@@ -3,9 +3,9 @@ apiVersion: v2
 name: hashrouter
 type: application
 description: >-
-  A Helm chart for hashrouter, a A zero-dependencies HTTP proxy 
+  A Helm chart for hashrouter, a A zero-dependencies HTTP proxy
   that truly routes requests hash-consistently
-version: &chartVersionSpec 0.10.5 # chart version
+version: &chartVersionSpec 0.11.0 # chart version
 appVersion: *chartVersionSpec # application version
 kubeVersion: ">=1.22.0-0" # kubernetes version
 home: https://github.com/achetronic/hashrouter

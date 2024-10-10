@@ -65,9 +65,11 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	connectionExtraData.RequestId = requestId
 
 	// calculate hashkey
-	hashKey, err := ReplaceRequestTags(r, p.SelfConfig.HashKey.Pattern)
-	if err != nil {
-		p.Logger.Errorf("error calculating hash_key: %v", err.Error())
+	hashKey := ReplaceRequestTags(r, p.SelfConfig.HashKey.Pattern)
+	hashKey = ReplaceRequestHeaderTags(r, hashKey)
+	hashKey = strings.TrimSpace(hashKey)
+	if len(hashKey) == 0 {
+		p.Logger.Error("error calculating hash_key: can not be empty")
 
 		httpRequestsTotalMetricLabels["delivered_status_code"] = strconv.Itoa(http.StatusInternalServerError)
 		httpRequestsTotalMetricLabels["error"] = "hash_key_calculation_failed"
@@ -75,7 +77,6 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		writeDirectResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	hashKey = strings.TrimSpace(hashKey)
 	connectionExtraData.Hashkey = hashKey
 
 	// get server
