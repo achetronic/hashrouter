@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"slices"
 	"strconv"
@@ -13,10 +14,28 @@ import (
 
 const (
 
+	// Maximum time in milliseconds to read the request from the client.
+	// (default: 0ms [no timeout])
+	defaultHttpServerReadTimeoutMillis = 0
+
+	// Maximum time in milliseconds to write the response to the client.
+	// (default: 0ms [no timeout])
+	defaultHttpServerWriteTimeoutMillis = 0
+
 	// (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
 	// including both connection and data transfer.
-	// If the request takes longer than this timeout, it will be aborted. (default: 40ms)
-	defaultHttpBackendRequestTimeoutMilliseconds = 40
+	// If the request takes longer than this timeout, it will be aborted.
+	// (default: 0ms [no timeout])
+	defaultHttpBackendRequestTimeoutMillis = 0
+
+	// Maximum time in milliseconds to establish a connection with the backend.
+	// If the dial takes longer than this timeout, it will be aborted. (default: 0s)
+	// A timeout of 0 means no timeout.
+	defaultHttpBackendDialTimeoutMillis = 0
+
+	// Time between keep-alive messages on established connection to the backend
+	// (default: 15s)
+	defaultHttpBackendKeepAliveMillis = 15000
 )
 
 // writeDirectResponse writes a static response.
@@ -37,6 +56,60 @@ func generateRandToken() string {
 	b := make([]byte, 8)
 	rand.Read(b)
 	return fmt.Sprintf("%x", b)
+}
+
+// getConfiguredHttpServer returns an HTTP server already configured according to the proxy configuration
+func (p *ProxyT) getConfiguredHttpServer(addr string, handler http.Handler) *http.Server {
+
+	readTimeout := defaultHttpServerReadTimeoutMillis * time.Millisecond
+	if p.SelfConfig.Options.HttpServerReadTimeoutMillis > 0 {
+		readTimeout = time.Duration(p.SelfConfig.Options.HttpServerReadTimeoutMillis) * time.Millisecond
+	}
+
+	//
+	writeTimeout := defaultHttpServerWriteTimeoutMillis * time.Millisecond
+	if p.SelfConfig.Options.HttpServerWriteTimeoutMillis > 0 {
+		writeTimeout = time.Duration(p.SelfConfig.Options.HttpServerWriteTimeoutMillis) * time.Millisecond
+	}
+
+	return &http.Server{
+		Addr:    addr,
+		Handler: handler,
+
+		//
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+	}
+}
+
+// getConfiguredHttpServer returns an HTTP client already configured according to the proxy configuration
+func (p *ProxyT) getConfiguredHttpClient() *http.Client {
+
+	requestTimeout := defaultHttpBackendRequestTimeoutMillis * time.Millisecond
+	if p.SelfConfig.Options.HttpBackendRequestTimeoutMillis > 0 {
+		requestTimeout = time.Duration(p.SelfConfig.Options.HttpBackendRequestTimeoutMillis) * time.Millisecond
+	}
+
+	dialTimeout := defaultHttpBackendDialTimeoutMillis * time.Millisecond
+	if p.SelfConfig.Options.HttpBackendDialTimeoutMillis > 0 {
+		dialTimeout = time.Duration(p.SelfConfig.Options.HttpBackendDialTimeoutMillis) * time.Millisecond
+	}
+
+	//
+	keepAlive := defaultHttpBackendKeepAliveMillis * time.Millisecond
+	if p.SelfConfig.Options.HttpBackendKeepAliveMillis > 0 {
+		keepAlive = time.Duration(p.SelfConfig.Options.HttpBackendKeepAliveMillis) * time.Millisecond
+	}
+
+	return &http.Client{
+		Timeout: requestTimeout,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   dialTimeout,
+				KeepAlive: keepAlive,
+			}).DialContext,
+		},
+	}
 }
 
 // TODO
@@ -100,16 +173,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		}
 		req.Header = r.Header
 
-		//
-		backendClientTimeout := defaultHttpBackendRequestTimeoutMilliseconds * time.Millisecond
-		if p.SelfConfig.Options.HttpBackendRequestTimeoutMilliseconds > 0 {
-			backendClientTimeout = time.Duration(p.SelfConfig.Options.HttpBackendRequestTimeoutMilliseconds) * time.Millisecond
-		}
-
 		// BackendCient represents the HTTP client to be used across concurrent requests
-		backendCient := &http.Client{
-			Timeout: backendClientTimeout,
-		}
+		backendCient := p.getConfiguredHttpClient()
 
 		//
 		resp, err = backendCient.Do(req)
@@ -193,9 +258,11 @@ func (p *ProxyT) RunHttp() (err error) {
 	p.Status.IsHealthy = true
 	p.Status.RWMutex.Unlock()
 
-	err = http.ListenAndServe(
+	httpServer := p.getConfiguredHttpServer(
 		p.SelfConfig.Listener.Address+":"+strconv.Itoa(p.SelfConfig.Listener.Port),
 		http.HandlerFunc(p.HTTPHandleFunc))
+
+	err = httpServer.ListenAndServe()
 
 	return err
 }

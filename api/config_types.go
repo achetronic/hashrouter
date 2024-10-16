@@ -59,8 +59,16 @@ type OptionsT struct {
 	TlsKey         string `yaml:"tls_key,omitempty"`
 
 	//
-	HttpBackendRequestTimeoutMilliseconds int  `yaml:"http_backend_request_timeout_ms,omitempty"`
-	TryAnotherBackendOnFailure            bool `yaml:"try_another_backend_on_failure,omitempty"`
+	HttpServerReadTimeoutMillis  int `yaml:"http_server_read_timeout_ms,omitempty"`
+	HttpServerWriteTimeoutMillis int `yaml:"http_server_write_timeout_ms,omitempty"`
+
+	//
+	HttpBackendDialTimeoutMillis    int `yaml:"http_backend_dial_timeout_ms,omitempty"`
+	HttpBackendKeepAliveMillis      int `yaml:"http_backend_keep_alive_ms,omitempty"`
+	HttpBackendRequestTimeoutMillis int `yaml:"http_backend_request_timeout_ms,omitempty"`
+
+	//
+	TryAnotherBackendOnFailure bool `yaml:"try_another_backend_on_failure,omitempty"`
 }
 
 // LogsT TODO

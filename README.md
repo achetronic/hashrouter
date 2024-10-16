@@ -126,10 +126,28 @@ proxies:
     options:
       protocol: http
 
+      # (optional) Maximum time in milliseconds to read the request from the client.
+      # (default: 0ms [no timeout])
+      http_server_read_timeout_ms: 0
+
+      # (optional) Maximum time in milliseconds to write the response to the client.
+      # (default: 0ms [no timeout])
+      http_server_write_timeout_ms: 0
+
       # (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
       # including both connection and data transfer.
-      # If the request takes longer than this timeout, it will be aborted. (default: 40ms)
-      http_backend_request_timeout_ms: 40
+      # If the request takes longer than this timeout, it will be aborted.
+      # (default: 0ms [no timeout])
+      http_backend_request_timeout_ms: 0
+
+      # (optional) Maximum time in milliseconds to establish a connection with the backend.
+      # If the dial takes longer than this timeout, it will be aborted.
+      # (default: 0ms [no timeout])
+      http_backend_dial_timeout_ms: 0
+
+      # (optional) Time between keep-alive messages on established connection to the backend.
+      # (default: 15s)
+      http_backend_keep_alive_ms: 15000
 
       # (optional) Hashring always assigns the same backend to the hashkey.
       # If the backend is down, you can try another backend until exaushting all of them
