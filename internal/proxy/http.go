@@ -22,6 +22,10 @@ const (
 	// (default: 0ms [no timeout])
 	defaultHttpServerWriteTimeoutMillis = 0
 
+	// Disable keep alives on the server.
+	// (default: false)
+	defaultHttpServerDisableKeepAlives = false
+
 	// (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
 	// including both connection and data transfer.
 	// If the request takes longer than this timeout, it will be aborted.
@@ -59,8 +63,11 @@ func generateRandToken() string {
 }
 
 // getConfiguredHttpServer returns an HTTP server already configured according to the proxy configuration
-func (p *ProxyT) getConfiguredHttpServer(addr string, handler http.Handler) *http.Server {
+func (p *ProxyT) getConfiguredHttpServer(addr string, handler http.Handler) (server *http.Server) {
 
+	server = &http.Server{}
+
+	//
 	readTimeout := defaultHttpServerReadTimeoutMillis * time.Millisecond
 	if p.SelfConfig.Options.HttpServerReadTimeoutMillis > 0 {
 		readTimeout = time.Duration(p.SelfConfig.Options.HttpServerReadTimeoutMillis) * time.Millisecond
@@ -72,17 +79,23 @@ func (p *ProxyT) getConfiguredHttpServer(addr string, handler http.Handler) *htt
 		writeTimeout = time.Duration(p.SelfConfig.Options.HttpServerWriteTimeoutMillis) * time.Millisecond
 	}
 
-	return &http.Server{
-		Addr:    addr,
-		Handler: handler,
-
-		//
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
+	//
+	disableKeepAlives := defaultHttpServerDisableKeepAlives
+	if p.SelfConfig.Options.HttpServerDisableKeepAlives {
+		disableKeepAlives = true
 	}
+
+	//
+	server.Addr = addr
+	server.Handler = handler
+	server.ReadTimeout = readTimeout
+	server.WriteTimeout = writeTimeout
+	server.SetKeepAlivesEnabled(!disableKeepAlives)
+
+	return server
 }
 
-// getConfiguredHttpServer returns an HTTP client already configured according to the proxy configuration
+// getConfiguredHttpClient returns an HTTP client already configured according to the proxy configuration
 func (p *ProxyT) getConfiguredHttpClient() *http.Client {
 
 	requestTimeout := defaultHttpBackendRequestTimeoutMillis * time.Millisecond

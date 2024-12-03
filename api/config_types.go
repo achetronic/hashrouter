@@ -59,8 +59,9 @@ type OptionsT struct {
 	TlsKey         string `yaml:"tls_key,omitempty"`
 
 	//
-	HttpServerReadTimeoutMillis  int `yaml:"http_server_read_timeout_ms,omitempty"`
-	HttpServerWriteTimeoutMillis int `yaml:"http_server_write_timeout_ms,omitempty"`
+	HttpServerReadTimeoutMillis  int  `yaml:"http_server_read_timeout_ms,omitempty"`
+	HttpServerWriteTimeoutMillis int  `yaml:"http_server_write_timeout_ms,omitempty"`
+	HttpServerDisableKeepAlives  bool `yaml:"http_server_disable_keep_alives,omitempty"`
 
 	//
 	HttpBackendDialTimeoutMillis    int `yaml:"http_backend_dial_timeout_ms,omitempty"`

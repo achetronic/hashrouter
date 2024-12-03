@@ -134,6 +134,10 @@ proxies:
       # (default: 0ms [no timeout])
       http_server_write_timeout_ms: 0
 
+      # (optional) Disable keep alives on the server.
+      # (default: false)
+      http_server_disable_keep_alives: false
+
       # (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
       # including both connection and data transfer.
       # If the request takes longer than this timeout, it will be aborted.
