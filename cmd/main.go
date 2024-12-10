@@ -5,6 +5,10 @@ import (
 	"path/filepath"
 
 	"hashrouter/internal/cmd"
+
+	// Enable profiling capabilities when needed.
+	// This will expose profiler only in private metrics server
+	_ "net/http/pprof"
 )
 
 func main() {

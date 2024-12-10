@@ -64,9 +64,10 @@ type OptionsT struct {
 	HttpServerDisableKeepAlives  bool `yaml:"http_server_disable_keep_alives,omitempty"`
 
 	//
-	HttpBackendDialTimeoutMillis    int `yaml:"http_backend_dial_timeout_ms,omitempty"`
-	HttpBackendKeepAliveMillis      int `yaml:"http_backend_keep_alive_ms,omitempty"`
-	HttpBackendRequestTimeoutMillis int `yaml:"http_backend_request_timeout_ms,omitempty"`
+	HttpBackendDialTimeoutMillis    int  `yaml:"http_backend_dial_timeout_ms,omitempty"`
+	HttpBackendKeepAliveMillis      int  `yaml:"http_backend_keep_alive_ms,omitempty"`
+	HttpBackendRequestTimeoutMillis int  `yaml:"http_backend_request_timeout_ms,omitempty"`
+	HttpBackendDisableKeepAlives    bool `yaml:"http_backend_disable_keep_alives,omitempty"`
 
 	//
 	TryAnotherBackendOnFailure bool `yaml:"try_another_backend_on_failure,omitempty"`

@@ -26,7 +26,7 @@ const (
 	// (default: false)
 	defaultHttpServerDisableKeepAlives = false
 
-	// (optional) Maximum time in milliseconds to wait for the entire backend request to complete,
+	// Maximum time in milliseconds to wait for the entire backend request to complete,
 	// including both connection and data transfer.
 	// If the request takes longer than this timeout, it will be aborted.
 	// (default: 0ms [no timeout])
@@ -40,6 +40,10 @@ const (
 	// Time between keep-alive messages on established connection to the backend
 	// (default: 15s)
 	defaultHttpBackendKeepAliveMillis = 15000
+
+	// Disable keep alives to the backend.
+	// (default: false)
+	defaultHttpBackendDisableKeepAlives = false
 )
 
 // writeDirectResponse writes a static response.
@@ -114,9 +118,16 @@ func (p *ProxyT) getConfiguredHttpClient() *http.Client {
 		keepAlive = time.Duration(p.SelfConfig.Options.HttpBackendKeepAliveMillis) * time.Millisecond
 	}
 
+	//
+	disableKeepAlives := defaultHttpBackendDisableKeepAlives
+	if p.SelfConfig.Options.HttpBackendDisableKeepAlives {
+		disableKeepAlives = true
+	}
+
 	return &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
+			DisableKeepAlives: disableKeepAlives,
 			DialContext: (&net.Dialer{
 				Timeout:   dialTimeout,
 				KeepAlive: keepAlive,

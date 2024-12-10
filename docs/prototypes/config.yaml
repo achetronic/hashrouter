@@ -107,6 +107,10 @@ proxies:
       # (default: 15s)
       http_backend_keep_alive_ms: 15000
 
+      # (optional) Disable keep alives to the backend.
+      # (default: false)
+      http_backend_disable_keep_alives: false
+
       # (optional) Hashring always assigns the same backend to the hashkey.
       # If the backend is down, you can try another backend until exaushting all of them
       # by enabling this option
