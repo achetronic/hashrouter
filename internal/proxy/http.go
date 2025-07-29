@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -182,6 +184,7 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 	dueBackendPoolIndex := slices.Index(hashringServerPool, dueBackend)
 
 	var resp *http.Response
+	requestBodyContent := &bytes.Buffer{}
 	for i := 0; i < len(hashringServerPool); i++ {
 
 		// When the loop is in last item, start from the beginning
@@ -190,7 +193,32 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 		currentSelectedBackend := hashringServerPool[indexToTry]
 
 		url := fmt.Sprintf("http://%s%s", currentSelectedBackend, r.URL.Path+"?"+r.URL.RawQuery)
-		req, err := http.NewRequest(r.Method, url, r.Body)
+
+		// The following is a trick to read the request body content
+		// using streaming techniques instead of wasting memory
+		// this way we can copy it keeping the memory consumption plain
+		// teeReader = (r.Body -> pipeWriter -> pipeReader -> sink)
+		pipeReader, pipeWriter := io.Pipe()
+		teeReader := io.TeeReader(r.Body, pipeWriter)
+
+		// Following goroutine is just for consuming from the pipe,
+		// storing or discarding the content, just because pipes are blocking
+		var wg sync.WaitGroup
+		requestBodyContent.Reset()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			if p.CommonConfig.Logs.EnableRequestBodyLogs {
+				io.Copy(requestBodyContent, pipeReader)
+				return
+			}
+			io.Copy(io.Discard, pipeReader)
+		}()
+
+		//req, err := http.NewRequest(r.Method, url, r.Body)
+		req, err := http.NewRequest(r.Method, url, teeReader)
 		if err != nil {
 			p.Logger.Errorf("error creating request object: %s", err.Error())
 			break
@@ -202,6 +230,12 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
 		//
 		resp, err = backendCient.Do(req)
+
+		// After .Do call finish, force closing body-stalker goroutine
+		// and wait before using the result
+		pipeWriter.Close()
+		wg.Wait()
+
 		if err == nil {
 			connectionExtraData.Backend = hashringServerPool[indexToTry]
 			lastErr = nil
@@ -243,7 +277,7 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
 	// Throw request log as early as possible
 	if p.CommonConfig.Logs.ShowAccessLogs {
-		logFields := GetRequestLogFields(r, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields)
+		logFields := GetRequestLogFields(r, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields, requestBodyContent)
 		p.Logger.Infow("request", logFields...)
 	}
 
