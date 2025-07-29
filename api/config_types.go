@@ -75,8 +75,9 @@ type OptionsT struct {
 
 // LogsT TODO
 type LogsT struct {
-	ShowAccessLogs   bool     `yaml:"show_access_logs"`
-	AccessLogsFields []string `yaml:"access_logs_fields"`
+	ShowAccessLogs        bool     `yaml:"show_access_logs"`
+	EnableRequestBodyLogs bool     `yaml:"enable_request_body_logs"`
+	AccessLogsFields      []string `yaml:"access_logs_fields"`
 }
 
 // GlobalT TODO

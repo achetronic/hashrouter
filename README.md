@@ -47,12 +47,18 @@ Here you have a complete example. More up-to-date one will always be maintained 
 common:
   logs:
     show_access_logs: true
+    enable_request_body_logs: false
     access_logs_fields:
     - ${REQUEST:method}
     - ${REQUEST:host}
     - ${REQUEST:path}
     - ${REQUEST:proto}
     - ${REQUEST:referer}
+
+    # Additionally, body can be logged too.
+    # Please, be extremely careful when doing it: could be giant
+    # For having content in this field, following flag must be enabled: common.logs.enable_request_body_logs
+    - ${REQUEST:body}
 
     - ${REQUEST_HEADER:user-agent}
     - ${REQUEST_HEADER:x-forwarded-for}

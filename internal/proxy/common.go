@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"net"
 	"net/http"
 	"regexp"
@@ -51,10 +52,10 @@ func ReplaceRequestTags(req *http.Request, textToProcess string) (result string)
 
 		variable := strings.ToLower(RequestPartsPatternCompiled.FindStringSubmatch(match)[1])
 
+		//
 		if replacement, exists := requestTags[variable]; exists {
 			return replacement
 		}
-
 		return ""
 	})
 
@@ -116,7 +117,7 @@ func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result s
 }
 
 // GetRequestLogFields returns the fields attached to a log message for the given HTTP request
-func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, configurationFields []string) []interface{} {
+func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, configurationFields []string, bodyContent *bytes.Buffer) []interface{} {
 	var logFields []interface{}
 
 	for _, field := range configurationFields {
@@ -137,6 +138,11 @@ func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, confi
 		field = strings.TrimPrefix(field, "${REQUEST_HEADER:")
 		field = strings.TrimPrefix(field, "${EXTRA:")
 		field = strings.TrimSuffix(field, "}")
+
+		// Explicitly add the body content when requested
+		if field == "body" && bodyContent != nil {
+			result = bodyContent.String()
+		}
 
 		logFields = append(logFields, field, result)
 	}
