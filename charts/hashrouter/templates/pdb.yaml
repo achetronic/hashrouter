@@ -27,9 +27,9 @@ spec:
 
   selector:
     matchLabels:
-      {{- include "hashrouter.selectorLabels" . | nindent 4 }}
+      {{- include "hashrouter.selectorLabels" . | nindent 6 }}
       {{- with .Values.agent.extraLabels }}
-      {{- toYaml . | nindent 8 }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 ---
 {{- end }}
