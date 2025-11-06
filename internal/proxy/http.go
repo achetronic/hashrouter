@@ -277,7 +277,8 @@ func (p *ProxyT) HTTPHandleFunc(w http.ResponseWriter, r *http.Request) {
 
 	// Throw request log as early as possible
 	if p.CommonConfig.Logs.ShowAccessLogs {
-		logFields := GetRequestLogFields(r, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields, requestBodyContent)
+		logFields := GetRequestLogFields(r, connectionExtraData, p.CommonConfig.Logs.AccessLogsFields, requestBodyContent,
+			p.CommonConfig.Logs.EnableRequestBodyLogsJsonParsing)
 		p.Logger.Infow("request", logFields...)
 	}
 

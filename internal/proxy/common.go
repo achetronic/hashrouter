@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"net"
 	"net/http"
 	"regexp"
@@ -56,7 +57,7 @@ func ReplaceRequestTags(req *http.Request, textToProcess string) (result string)
 		if replacement, exists := requestTags[variable]; exists {
 			return replacement
 		}
-		return ""
+		return textToProcess
 	})
 
 	return result
@@ -70,6 +71,11 @@ func ReplaceRequestHeaderTags(req *http.Request, textToProcess string) (result s
 
 		variable := strings.ToLower(RequestHeadersPatternCompiled.FindStringSubmatch(match)[1])
 		headerValue := req.Header.Get(variable)
+
+		//
+		if headerValue == "" {
+			headerValue = textToProcess
+		}
 
 		return headerValue
 	})
@@ -85,6 +91,11 @@ func ReplaceResponseHeaderTags(res *http.Response, textToProcess string) (result
 
 		variable := strings.ToLower(ResponseHeadersPatternCompiled.FindStringSubmatch(match)[1])
 		headerValue := res.Header.Get(variable)
+
+		//
+		if headerValue == "" {
+			headerValue = textToProcess
+		}
 
 		return headerValue
 	})
@@ -109,7 +120,7 @@ func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result s
 		case "backend":
 			return extra.Backend
 		default:
-			return ""
+			return textToProcess
 		}
 	})
 
@@ -117,19 +128,18 @@ func ReplaceExtraTags(extra ConnectionExtraData, textToProcess string) (result s
 }
 
 // GetRequestLogFields returns the fields attached to a log message for the given HTTP request
-func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, configurationFields []string, bodyContent *bytes.Buffer) []interface{} {
+func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, configurationFields []string, bodyContent *bytes.Buffer, parseBodyAsJson bool) []interface{} {
 	var logFields []interface{}
 
 	for _, field := range configurationFields {
 
 		result := ReplaceRequestTags(req, field)
-
 		result = ReplaceRequestHeaderTags(req, result)
-
 		result = ReplaceExtraTags(extraData, result)
 
 		// Ignore not expanded fields
-		if result == field {
+		cleanField := strings.ReplaceAll(field, " ", "")
+		if result == field && cleanField != "${REQUEST:body}" {
 			continue
 		}
 
@@ -140,8 +150,18 @@ func GetRequestLogFields(req *http.Request, extraData ConnectionExtraData, confi
 		field = strings.TrimSuffix(field, "}")
 
 		// Explicitly add the body content when requested
-		if field == "body" && bodyContent != nil {
-			result = bodyContent.String()
+		if cleanField == "${REQUEST:body}" && bodyContent != nil {
+			bodyStr := bodyContent.String()
+
+			//
+			if parseBodyAsJson {
+				var bodyObj interface{}
+				if json.Unmarshal([]byte(bodyStr), &bodyObj) == nil {
+					logFields = append(logFields, field, bodyObj)
+					continue
+				}
+			}
+			result = bodyStr
 		}
 
 		logFields = append(logFields, field, result)

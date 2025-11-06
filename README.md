@@ -48,6 +48,7 @@ common:
   logs:
     show_access_logs: true
     enable_request_body_logs: false
+    enable_request_body_logs_json_parsing: false
     access_logs_fields:
     - ${REQUEST:method}
     - ${REQUEST:host}

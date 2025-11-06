@@ -98,7 +98,7 @@ build: fmt vet check-go-target check-version ## Build CLI binary.
 
 .PHONY: run
 run: fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run ./cmd/main.go run --config ./docs/prototypes/config.yaml
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.

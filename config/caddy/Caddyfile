@@ -1,0 +1,11 @@
+{
+    # These params are global
+    http_port 8090
+    skip_install_trust
+}
+
+:8090 {
+    handle /* {
+          respond "Hello from Caddy!" 200
+    }
+}

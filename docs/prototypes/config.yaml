@@ -2,6 +2,7 @@ common:
   logs:
     show_access_logs: true
     enable_request_body_logs: false
+    enable_request_body_logs_json_parsing: false
     access_logs_fields:
     - ${REQUEST:method}
     - ${REQUEST:host}
@@ -36,7 +37,7 @@ proxies:
       synchronization: 10s
 
       # ATTENTION:
-      # When the healthchecks are configured, related server is automatically
+      # When the health checks are configured, related server is automatically
       # added (and removed) to the hashring.
       # During backend outages, this mechanism decreases the latency of responses at the
       # cost of decreasing the hashring consistency (the router doesn't waste time trying backends in order).
